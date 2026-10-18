@@ -19,6 +19,7 @@ TYPE_FOLDER: dict[str, str] = {
     MemoryType.profile.value: "profile",
 }
 REVIEW_FOLDERS = ("inbox", "rejected", "archive")
+PERIODS = ("daily", "weekly", "monthly", "dream")
 # Never returned to agents by recall/read.
 # `sources/` holds raw archived transcripts (e.g. Basic Memory imports of chat exports).
 HIDDEN_FOLDERS = frozenset(REVIEW_FOLDERS) | {"sources", ".memrelay", ".git", ".obsidian"}
@@ -56,6 +57,17 @@ class Vault:
 
     def folder_for(self, mtype: str) -> Path:
         return self.root / TYPE_FOLDER.get(str(mtype), "facts")
+
+    def target_dir(self, note: Note) -> Path:
+        """Layered location (persona-design §2.5): events/YYYY/, reflections/<period>/."""
+        base = self.folder_for(note.type)
+        if note.type == MemoryType.event.value:
+            year = (note.valid_from or note.captured_at.date()).year
+            return base / str(year)
+        if note.type == MemoryType.reflection.value:
+            period = str(getattr(note, "period", "") or "notes")
+            return base / (period if period in PERIODS else "notes")
+        return base
 
     def is_hidden(self, path: Path) -> bool:
         rel = Path(path).resolve().relative_to(self.root.resolve())

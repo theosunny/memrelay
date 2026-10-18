@@ -17,7 +17,8 @@ from fastmcp import FastMCP
 from .backend import SearchBackend, make_backend
 from .config import Config
 from .inbox import Inbox
-from .schema import MemoryType, Note, Sensitivity, Status, effective_confidence
+from .schema import MemoryType, Note, effective_confidence
+from .temporal import parse_date, visible
 from .vault import Vault
 
 TOOL_WHITELIST = ("get_profile", "recall", "read_memory", "recent", "propose_memory")
@@ -35,14 +36,8 @@ INSTRUCTIONS = """MemRelay is the user's personal memory, shared across their AI
 从用户原话中学到的长期信息用 propose_memory 提议（需用户审核）；不要提议任何密钥或隐私号码。"""
 
 
-def _visible(note: Note, today: dt.date) -> bool:
-    if note.status != Status.active.value:
-        return False
-    if note.sensitivity == Sensitivity.secret.value:
-        return False
-    if note.valid_to and note.valid_to <= today:
-        return False
-    return True
+def _visible(note: Note, today: dt.date, as_of: dt.date | None = None) -> bool:
+    return visible(note, today, as_of)
 
 
 def _summary(rel: str, note: Note, today: dt.date) -> dict[str, Any]:
@@ -55,6 +50,8 @@ def _summary(rel: str, note: Note, today: dt.date) -> dict[str, Any]:
         "confidence": note.confidence,
         "effective_confidence": effective_confidence(note, today),
         "valid_from": note.valid_from.isoformat() if note.valid_from else None,
+        "valid_to": note.valid_to.isoformat() if note.valid_to else None,
+        "status": note.status,
         "source_agent": note.source_agent,
         "captured_at": note.captured_at.isoformat(),
     }
@@ -98,15 +95,21 @@ def build_server(cfg: Config | None = None, backend: SearchBackend | None = None
         return p.read_text(encoding="utf-8")
 
     @mcp.tool
-    async def recall(query: str, types: list[str] | None = None, limit: int = 8) -> list[dict]:
-        """Search the user's reviewed memories. `types` filters by layer, e.g. ["preference"]."""
+    async def recall(query: str, types: list[str] | None = None, limit: int = 8,
+                     as_of: str | None = None) -> list[dict]:
+        """Search the user's reviewed memories. `types` filters by layer, e.g. ["preference"].
+        `as_of` (YYYY-MM-DD) returns what was true on that date, including since-superseded facts."""
         limit = max(1, min(int(limit), 25))
         today = dt.date.today()
+        try:
+            when = parse_date(as_of)
+        except ValueError:
+            return [{"error": "as_of must be YYYY-MM-DD"}]
         allowed = {t.lower() for t in types} if types else None
         out = []
         for rel in await backend.search(query, limit * 3):
             note = _load(rel)
-            if note is None or not _visible(note, today):
+            if note is None or not _visible(note, today, when):
                 continue
             if allowed and str(note.type) not in allowed:
                 continue
