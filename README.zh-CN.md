@@ -1,17 +1,167 @@
 # MemRelay（忆桥）
 
-[English](README.md) · 许可证：Apache-2.0 · 状态：**预览前（v0.1 开发中，私有）**
+[![ci](https://github.com/theosunny/memrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/theosunny/memrelay/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[English](README.md)
 
-**让你所有的 AI 智能体共用一份个人记忆。** MemRelay 把 Claude Code、Cursor、Claude Desktop 等支持 MCP 的智能体接到同一个由你掌控的 Markdown 记忆库；每条记忆都有出处，每次写入都先进收件箱等你审核。
+**让你所有的 AI 智能体共用一份记忆，并逐渐成为你的数字分身。**
 
-不重复造轮子：记忆库由 [Basic Memory](https://github.com/basicmachines-co/basic-memory) 管理，MemRelay 以独立程序方式通过 MCP stdio 调用它。MemRelay 补上现有项目没有组合起来的部分：
+你跟 Claude Code 说过你用 pnpm，跟 Cursor 说过你的时区，跟 ChatGPT 讲过你的项目，可一换工具就全忘了。MemRelay 让它们共用**一份属于你的个人记忆**：存在你本机的普通 Markdown 文件里，每条记忆都有出处，**你批准之前什么都不会存进去**。
 
-- **网关**：只暴露白名单工具（`get_profile`、`recall`、`read_memory`、`recent`、`propose_memory`）。智能体只能读已审核的记忆、提议新记忆；提议写入 `inbox/`，你批准前不会进入正式记忆。
-- **接入（connect）**：在 Windows / macOS / Linux 上为各智能体写 MCP 配置，自动备份、一条命令回滚。
-- **采集（capture）**：增量读取本地智能体历史（首个来源：Claude Code 会话日志），经可插拔抽取器（LLM 或离线规则桩）生成候选记忆。
-- **审核（review）**：`memrelay inbox list / show / approve / reject`。
-- **画像（profile）**：从已审核记忆生成精简核心画像，注入到不支持 MCP 的智能体。
+> 状态：**v0.1.0**，面向开发者的预览版，尚未发布到 PyPI。欢迎反馈。
 
-v0.1 当前能力：`connect --all` 向导（Claude Code、Cursor、Claude Desktop、Windsurf、Codex、Gemini CLI、VS Code Copilot、Cline；豆包/Kimi/千问 为“生成配置 + 引导步骤”）、`capture all`（Claude Code / Codex / Gemini CLI）、`import`（ChatGPT / Claude 导出包，导入前询问）、`review`（本机网页审核）、`autostart`（开机自启，支持 `--dry-run`）、模型下载自动回退 hf-mirror.com。所有路径及出处见 `docs/client-config-paths.md`。
+## 功能
 
-快速开始与目录结构见英文 README。Basic Memory 为 AGPL-3.0-or-later，**不随本项目分发**，详见 `NOTICE`。
+| | 功能 | 状态 |
+|---|---|---|
+| 🔌 | **接入**：通过 MCP 接入各智能体，自动写配置、先备份、一条命令回滚；`connect --all` 向导 | ✅ v0.1 |
+| 📥 | **采集**：增量读取本地智能体历史（Claude Code、Codex、Gemini CLI）；`--watch` + 开机自启 | ✅ v0.1 |
+| 📦 | **导入**：ChatGPT / Claude.ai 官方数据导出包（自动在“下载”里找，导入前询问） | ✅ v0.1 |
+| ✅ | **收件箱审核**：智能体、采集、导入的每次写入都先等你审核（命令行 + 本机网页） | ✅ v0.1 |
+| 🛡️ | **网关**：白名单 MCP 工具，智能体除 `propose_memory` 外只读；密钥打码、注入标记 | ✅ v0.1 |
+| 🧭 | **核心画像**：由已审核记忆生成，每条都链接到来源 | ✅ v0.1 |
+| 🇨🇳 | 国内友好：嵌入模型下载自动回退 hf-mirror.com；豆包 / Kimi / 千问 提供引导式配置 | ✅ v0.1 |
+| ⏳ | 时间维度记忆（`valid_from` / `valid_to` / `superseded_by`，按时间点查询） | 🚧 v0.2 |
+| 🔁 | 整理建议（新增 / 更新 / 取代 / 无需改动），从不自动删除 | 🚧 v0.2 |
+| 🪞 | 反思：带引用的日报 / 周报；“Dream”大整理前打 git 快照、可一键回滚 | 🚧 v0.2 |
+| ✍️ | 只基于你本人文字的风格卡和决策原则；`answer_as_me` / `draft_as_me`（只出草稿） | 🚧 v0.2 |
+| 📏 | 分身保真度评估（“分身答得像不像我”） | 🚧 v0.2 |
+| 🌐 | 限定范围的“问我的分身”分享、A2A、手机分享面板、浏览器扩展 | 🗓 计划中 |
+
+## 工作原理
+
+```mermaid
+flowchart LR
+  subgraph AG[智能体]
+    CC[Claude Code]
+    CU[Cursor]
+    CX[Codex]
+    GM[Gemini CLI]
+    VS[VS Code / Cline / Windsurf]
+  end
+  AG -- "MCP stdio<br/>白名单工具" --> GW[MemRelay 网关]
+  GW -- "只读已审核笔记" --> V[(Markdown 记忆库<br/>~/MemRelay)]
+  GW -- "propose_memory" --> IN[(inbox/ 收件箱)]
+  CAP[采集：本地会话日志] --> EX[抽取器<br/>规则或你的 LLM] --> IN
+  IMP[导入：ChatGPT / Claude 导出包] --> EX
+  IN -- "你批准" --> V
+  IN -- "你拒绝" --> RJ[(rejected/)]
+  V --> PR[profile/core-profile.md]
+  GW -. "独立进程检索" .-> BM[Basic Memory<br/>AGPL，不随本项目分发]
+  BM -.-> V
+```
+
+- 存储和检索由 [Basic Memory](https://github.com/basicmachines-co/basic-memory) 完成，MemRelay 以独立程序方式通过 MCP stdio 调用它，从不 import、也不打包它。
+- MemRelay 补上它周边缺的部分：收件箱审核、策略网关、客户端接入、采集与导入，以及画像层。
+
+详见 [docs/architecture.md](docs/architecture.md)。
+
+## 支持的客户端
+
+| 客户端 | 自动接入（写 MCP 配置） | 采集历史 | 说明 |
+|---|---|---|---|
+| Claude Code | ✅ `~/.claude.json` | ✅ `~/.claude/projects/**.jsonl` | |
+| Cursor | ✅ `~/.cursor/mcp.json` | ❌ | 聊天记录存在未公开的 SQLite 里 |
+| Claude Desktop | ✅ macOS / Windows；Linux 用社区路径 | ❌ | 接入前先退出应用 |
+| Windsurf（Cascade） | ✅ `~/.config/devin/mcp_config.json` | ❌ | |
+| Codex CLI / IDE | ✅ `~/.codex/config.toml`（保留注释） | ✅ `~/.codex/sessions/**/rollout-*.jsonl` | 支持 `CODEX_HOME` |
+| Gemini CLI | ✅ `~/.gemini/settings.json` | ✅ `~/.gemini/tmp/*/chats/session-*.jsonl` | |
+| VS Code（GitHub Copilot） | ✅ `~/.copilot/mcp-config.json` | ❌ | |
+| Cline（命令行） | ✅ `~/.cline/data/settings/cline_mcp_settings.json` | ❌ | |
+| Cline（VS Code 插件） | ✅ 仅当插件数据目录已存在 | ❌ | 来源为第三方资料 |
+| 豆包 / Kimi / 通义千问 桌面版 | 🧭 引导：输出配置 JSON 和步骤，不写任何文件 | ❌ | 未找到官方配置路径 |
+| ChatGPT / Claude.ai（网页） | — | 📦 通过官方数据导出包导入 | |
+
+所有路径及出处见 [docs/client-config-paths.md](docs/client-config-paths.md)。
+
+## 快速开始
+
+需要 [uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python ≥ 3.11。
+
+**macOS / Linux**
+
+```bash
+uv tool install basic-memory      # 存储/检索后端（AGPL-3.0，需单独安装）
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+memrelay init
+memrelay connect --all            # 发现本机智能体，逐个预览改动并确认
+```
+
+**Windows（PowerShell）**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+uv tool install basic-memory
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+memrelay init
+memrelay connect --all
+```
+
+重启各智能体，然后问其中一个：“你对我了解多少？”
+
+**中国大陆用户**：Basic Memory 首次使用时要从 Hugging Face 下载一个小的嵌入模型。MemRelay 会先检测 `huggingface.co` 是否可达，不可达时自动把 `HF_ENDPOINT` 设为 `https://hf-mirror.com`。你自己设置过 `HF_ENDPOINT` 时以你的为准；在 `config.toml` 里写 `hf_endpoint = "off"` 可关闭这项检测。想让 `uv` 安装更快，也可以把 `UV_INDEX_URL` 设成你信任的 PyPI 镜像。
+
+## 常用命令
+
+```bash
+memrelay capture all              # 采集 Claude Code + Codex + Gemini CLI → 收件箱
+memrelay autostart install --dry-run   # 先查看 launchd / systemd / 任务计划 的配置
+memrelay import scan              # 在“下载”里找 ChatGPT / Claude 导出包
+memrelay import run               # 每个包导入前都会询问
+memrelay review                   # 本机网页审核（仅 127.0.0.1）
+memrelay inbox list | approve <id> | reject <id>
+memrelay profile build            # 重新生成 profile/core-profile.md
+memrelay connect rollback <agent> # 恢复该智能体之前的配置
+memrelay doctor                   # 查看路径和已检测到的组件
+```
+
+## 安全模型
+
+- **审核队列**：智能体、采集、导入都只能**提议**。提议进 `inbox/`，你批准之前不会成为记忆。
+- **白名单网关**：智能体只能看到固定几个 MCP 工具：`get_profile`、`recall`、`read_memory`、`recent`、`propose_memory`。它们不能编辑、删除或移动笔记。
+- **读取过滤**：收件箱、已拒绝、已归档、已过期以及 `secret` 级别的笔记，永远不会返回给智能体。
+- **脱敏**：写入时会给密钥和令牌打码；疑似提示注入的内容会被标记，审核时提醒你。
+- **没有发送能力**：MemRelay 不接任何邮件、聊天或发帖接口；计划中的 `draft_as_me` 也只返回文字草稿。
+- **本地优先**：记忆库就是你磁盘上的文件；网页审核只监听 127.0.0.1，每次启动生成随机令牌，并做 CSRF 校验。
+- **配置改动可撤销**：写任何客户端配置之前都会先备份。
+
+发现安全漏洞请按 [SECURITY.md](SECURITY.md) 报告。
+
+## 常见问题
+
+**为什么不直接用 Mem0 / Letta / Zep / OpenMemory？** 它们是很好的记忆**引擎**，通常给你自己开发的应用用。MemRelay 面向的是同时用很多现成智能体的**个人**：把它们全接到同一份记忆上，每次写入都由人把关，记忆存成你能直接读、能自己同步的普通文件。合适的地方我们借鉴了它们的思路（Mem0 的更新操作、Graphiti 的时间失效、Letta 的核心/归档分层），出处见 [docs/architecture.md](docs/architecture.md)。
+
+**会抓取封闭应用（微信、豆包、Kimi……）的数据吗？** 不会。MemRelay 只读取各工具按公开文档写在你本机的文件，以及你自己下载的官方数据导出包。应用没有公开 MCP 配置路径的，我们只给操作步骤，不去猜路径。
+
+**Basic Memory 是 AGPL，对我有影响吗？** MemRelay 是 Apache-2.0，只是把你自己安装的 Basic Memory 当独立程序**运行**，不 import、不修改、也不分发它。详见 [NOTICE](NOTICE)。
+
+**需要大模型或 API key 吗？** 不需要。默认抽取器基于规则，完全离线。你也可以接入任意 OpenAI 兼容接口（OpenAI、DeepSeek、通义千问、Kimi、本地 Ollama……）；key 从环境变量读取，MemRelay 不保存。
+
+**能手动编辑记忆吗？** 可以，它们就是 Markdown 文件，用任何编辑器或 Obsidian 打开记忆库即可。
+
+## 路线图
+
+- **v0.2 数字分身**：
+  - 时间维度记忆和按时间点查询
+  - 整理建议
+  - 日报 / 周报反思，Dream 大整理（git 可回滚）
+  - 风格卡和决策原则
+  - `answer_as_me` / `draft_as_me`
+  - 保真度评估
+- **v0.3**：
+  - 由宿主智能体代做抽取（无需 key）
+  - 更完善的审核界面
+  - 更多采集来源（等其格式有公开文档后）
+- **v1.0**：
+  - 限定范围的“问我的分身”分享（带审计和限流）
+  - A2A Agent Card
+  - 手机分享面板
+  - 浏览器扩展
+
+## 参与贡献
+
+欢迎提 issue 和 PR，中文英文都可以。我们用 DCO（`git commit -s`），不需要签 CLA。先看 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [接入/采集开发指南](docs/adapter-authoring.md)。
+
+## 许可证
+
+Apache-2.0，见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。Basic Memory 是 Basic Machines 的独立 AGPL-3.0 项目，不随 MemRelay 分发。

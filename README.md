@@ -1,61 +1,198 @@
 # MemRelay (忆桥)
 
-[中文](README.zh-CN.md) · License: Apache-2.0 · Status: **pre-alpha (v0.1 in progress, private)**
+[![ci](https://github.com/theosunny/memrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/theosunny/memrelay/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[中文](README.zh-CN.md)
 
-**One personal memory for all your AI agents.** MemRelay connects Claude Code, Cursor,
-Claude Desktop and other MCP-capable agents to a single Markdown memory vault that *you* own,
-with provenance on every memory and a review inbox in front of every write.
+**One memory for all your AI agents — and, over time, your digital twin.**
 
-It does not reinvent storage: the vault is managed by
-[Basic Memory](https://github.com/basicmachines-co/basic-memory), which MemRelay runs as a
-separate program over MCP stdio. MemRelay adds the parts no existing project combines:
+You tell Claude Code you prefer pnpm, tell Cursor your time zone, tell ChatGPT about your
+project… and every agent forgets the moment you switch. MemRelay gives all of them **one
+personal memory you own**: plain Markdown on your disk, every memory with its source, and
+**nothing saved until you approve it**.
 
-- **Gateway** – an MCP server that exposes only whitelisted tools (`get_profile`, `recall`,
-  `read_memory`, `recent`, `propose_memory`). Agents can *read* reviewed memories and *propose*
-  new ones; proposals land in `inbox/` and never touch the vault until you approve them.
-- **Connect** – writes the MCP config for each agent on Windows / macOS / Linux, with a backup
-  and one-command rollback.
-- **Capture** – reads local agent history (Claude Code session logs first) incrementally and
-  turns it into candidate memories through a pluggable extractor (LLM or offline stub).
-- **Review** – `memrelay inbox list / show / approve / reject`.
-- **Profile** – builds a compact core profile from approved memories, to inject into agents
-  that cannot speak MCP.
+> Status: **v0.1.0** — usable preview for developers. Not on PyPI yet. Feedback welcome.
 
-## Quick start (development)
+## Features
+
+| | Feature | Status |
+|---|---|---|
+| 🔌 | **Connect** agents over MCP: writes each agent's config, backs it up, one-command rollback; `connect --all` wizard | ✅ v0.1 |
+| 📥 | **Capture** local agent history incrementally (Claude Code, Codex, Gemini CLI); `--watch` + autostart at login | ✅ v0.1 |
+| 📦 | **Import** ChatGPT / Claude.ai data exports (auto-found in Downloads, asks first) | ✅ v0.1 |
+| ✅ | **Review inbox**: every write from agents/capture waits for you (CLI + local web UI) | ✅ v0.1 |
+| 🛡️ | **Gateway**: whitelisted MCP tools, read-only for agents except `propose_memory`; secret redaction, injection flags | ✅ v0.1 |
+| 🧭 | **Core profile** generated from reviewed memories, with links to sources | ✅ v0.1 |
+| 🇨🇳 | China-friendly: HF mirror fallback for the embedding model; guided setup for 豆包 / Kimi / 千问 | ✅ v0.1 |
+| ⏳ | Temporal memory (`valid_from` / `valid_to` / `superseded_by`, `as_of` queries) | 🚧 v0.2 |
+| 🔁 | Consolidation proposals (ADD / UPDATE / SUPERSEDE / NOOP), never auto-delete | 🚧 v0.2 |
+| 🪞 | Reflection (daily/weekly with citations), "Dream" consolidation with git snapshot + rollback | 🚧 v0.2 |
+| ✍️ | Style card + decision principles from your own words; `answer_as_me` / `draft_as_me` (draft only) | 🚧 v0.2 |
+| 📏 | Fidelity eval harness ("does the twin answer like me?") | 🚧 v0.2 |
+| 🌐 | Share a scoped "ask my twin" link, A2A, mobile share sheet, browser extension | 🗓 planned |
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph Agents
+    CC[Claude Code]
+    CU[Cursor]
+    CX[Codex]
+    GM[Gemini CLI]
+    VS[VS Code / Cline / Windsurf]
+  end
+  Agents -- "MCP stdio<br/>(whitelisted tools)" --> GW[MemRelay gateway]
+  GW -- "read reviewed notes" --> V[(Markdown vault<br/>~/MemRelay)]
+  GW -- "propose_memory" --> IN[(inbox/)]
+  CAP[capture: local transcripts] --> EX[extractor<br/>rules or your LLM] --> IN
+  IMP[import: ChatGPT / Claude exports] --> EX
+  IN -- "you approve" --> V
+  IN -- "you reject" --> RJ[(rejected/)]
+  V --> PR[profile/core-profile.md]
+  GW -. "search via separate process" .-> BM[Basic Memory<br/>AGPL, not bundled]
+  BM -.-> V
+```
+
+- **Storage & search** are done by [Basic Memory](https://github.com/basicmachines-co/basic-memory),
+  launched as a separate program over MCP stdio. MemRelay never imports or ships it.
+- MemRelay adds what was missing around it: the review inbox, the policy gateway, client
+  connectors, capture/import, and the persona layer.
+
+More: [docs/architecture.md](docs/architecture.md).
+
+## Supported clients
+
+| Client | Auto-connect (writes MCP config) | Capture history | Notes |
+|---|---|---|---|
+| Claude Code | ✅ `~/.claude.json` | ✅ `~/.claude/projects/**.jsonl` | |
+| Cursor | ✅ `~/.cursor/mcp.json` | ❌ | chat history is an undocumented SQLite DB |
+| Claude Desktop | ✅ macOS / Windows; Linux community path | ❌ | quit the app before connecting |
+| Windsurf (Cascade) | ✅ `~/.config/devin/mcp_config.json` | ❌ | |
+| Codex CLI / IDE | ✅ `~/.codex/config.toml` (comments preserved) | ✅ `~/.codex/sessions/**/rollout-*.jsonl` | honours `CODEX_HOME` |
+| Gemini CLI | ✅ `~/.gemini/settings.json` | ✅ `~/.gemini/tmp/*/chats/session-*.jsonl` | |
+| VS Code (GitHub Copilot) | ✅ `~/.copilot/mcp-config.json` | ❌ | |
+| Cline (CLI) | ✅ `~/.cline/data/settings/cline_mcp_settings.json` | ❌ | |
+| Cline (VS Code extension) | ✅ only if its storage folder exists | ❌ | secondary sources |
+| 豆包 / Kimi / 通义千问 desktop | 🧭 guided: prints the JSON + steps, writes nothing | ❌ | no official config path found |
+| ChatGPT / Claude.ai (web) | — | 📦 via data export import | |
+
+Every path and its source: [docs/client-config-paths.md](docs/client-config-paths.md).
+
+## Quick start
+
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) and Python ≥ 3.11.
+
+**macOS / Linux**
 
 ```bash
-uv tool install basic-memory          # storage backend (AGPL-3.0, installed separately)
-uv sync                               # in this repo
-uv run memrelay init                  # creates ~/MemRelay vault + config
-uv run memrelay connect list          # see which agents were detected
-uv run memrelay connect install cursor --dry-run
-uv run memrelay capture claude-code   # one-shot incremental capture -> inbox/
-uv run memrelay inbox list
-uv run memrelay profile build
-uv run memrelay serve                 # MCP gateway over stdio (what agents launch)
-uv run memrelay connect --all         # wizard: discover agents, preview, confirm each
-uv run memrelay capture all           # Claude Code + Codex + Gemini CLI
-uv run memrelay import scan           # find ChatGPT / Claude exports in Downloads
-uv run memrelay import run            # asks before importing each package
-uv run memrelay review                # local web review UI on 127.0.0.1
-uv run memrelay autostart install --dry-run   # launchd / systemd --user / Task Scheduler
+uv tool install basic-memory      # storage/search backend (AGPL-3.0, installed separately)
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+memrelay init
+memrelay connect --all            # discover agents, preview each change, confirm
 ```
 
-For real use, install the CLI (`uv tool install ./packages/core` or the built wheel); agent
-configs then point at the installed `memrelay` script. Every path MemRelay touches, with its
-source, is in [docs/client-config-paths.md](docs/client-config-paths.md).
+**Windows (PowerShell)**
 
-## Repository layout
-
-```
-packages/core            Python package `memrelay` (gateway, connect, capture, review, profile)
-packages/web             PWA review UI            (v0.2, planned)
-packages/desktop         Tauri tray app           (v0.2, planned)
-packages/extension       Browser capture extension (v0.2, planned)
-packages/mobile-shortcuts iOS Shortcuts / Android share target (v0.2, planned)
-docs/                    Design notes, client config path sources
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+uv tool install basic-memory
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+memrelay init
+memrelay connect --all
 ```
 
-## Licensing
+Restart your agents, then ask one of them "what do you know about me?".
 
-MemRelay is Apache-2.0. Basic Memory is AGPL-3.0-or-later and is **not** bundled; see `NOTICE`.
+**In mainland China:** Basic Memory downloads a small embedding model from Hugging Face on
+first use. MemRelay checks whether `huggingface.co` is reachable and, if not, points
+`HF_ENDPOINT` at `https://hf-mirror.com`. If you set `HF_ENDPOINT` yourself, MemRelay leaves it
+alone; `hf_endpoint = "off"` in `config.toml` disables the check. For a faster `uv` install
+you can also set `UV_INDEX_URL` to a PyPI mirror you trust.
+
+## Common commands
+
+```bash
+memrelay capture all              # Claude Code + Codex + Gemini CLI → inbox
+memrelay autostart install --dry-run   # show the launchd / systemd / Task Scheduler entry first
+memrelay import scan              # find ChatGPT / Claude exports in Downloads
+memrelay import run               # asks before importing each package
+memrelay review                   # local web review UI (127.0.0.1 only)
+memrelay inbox list | approve <id> | reject <id>
+memrelay profile build            # regenerate profile/core-profile.md
+memrelay connect rollback <agent> # restore the agent's previous config
+memrelay doctor                   # paths and detected components
+```
+
+## Security model
+
+- **Review queue.** Agents, capture and import can only *propose*. Proposals land in
+  `inbox/`; nothing becomes a memory until you approve it.
+- **Whitelist gateway.** Agents see a fixed set of MCP tools: `get_profile`, `recall`,
+  `read_memory`, `recent` and `propose_memory`. They cannot edit, delete or move notes.
+- **Reads are filtered.** Inbox, rejected, archived, expired and `secret` notes are never
+  returned.
+- **Sanitising.** Keys and tokens are redacted on the way in; text that looks like prompt
+  injection is flagged for review.
+- **No send capability.** MemRelay has no email, chat or posting integration; the planned
+  `draft_as_me` returns text only.
+- **Local first.** The vault is files on your disk, and the web review UI binds to
+  127.0.0.1 with a per-run token and CSRF check.
+- **Config changes are reversible.** Every client config is backed up before it is written.
+
+See [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+## FAQ
+
+**Why not just use Mem0 / Letta / Zep / OpenMemory?** They are excellent memory *engines*,
+usually for apps you build. MemRelay is for a *person* who uses many off-the-shelf agents.
+It wires them all to one store, keeps a human in the loop for every write, and stores
+memory as plain files you can read and sync. We borrow their ideas where they fit (Mem0's
+update operations, Graphiti's temporal invalidation, Letta's core vs archival memory) and
+credit them in [docs/architecture.md](docs/architecture.md).
+
+**Will you scrape closed apps (WeChat, 豆包, Kimi …)?** No. MemRelay only reads files that
+tools write to your own disk in documented locations, plus official data exports that you
+download yourself. Where an app documents no MCP config path, we print setup steps instead
+of guessing.
+
+**Basic Memory is AGPL — does that affect me?** MemRelay is Apache-2.0 and only *runs*
+Basic Memory as a separate program that you install yourself. It does not import, modify or
+redistribute it. See [NOTICE](NOTICE).
+
+**Does it need an LLM or an API key?** No. The default extractor is rule-based and fully
+offline. You can optionally plug in any OpenAI-compatible endpoint (OpenAI, DeepSeek, Qwen,
+Kimi, a local Ollama …); the key is read from an environment variable and never stored.
+
+**Can I edit memories by hand?** Yes, they are Markdown files. Open the vault in any
+editor or in Obsidian.
+
+## Roadmap
+
+- **v0.2 – twin:**
+  - temporal memory and `as_of` recall
+  - consolidation proposals
+  - daily/weekly reflection and Dream with git rollback
+  - style card and principles
+  - `answer_as_me` / `draft_as_me`
+  - fidelity eval
+- **v0.3:**
+  - extraction delegated to the host agent (no key needed)
+  - a richer review UI
+  - more capture sources once their formats are documented
+- **v1.0:**
+  - scoped "ask my twin" sharing with audit and rate limits
+  - A2A Agent Card
+  - mobile share sheet
+  - browser extension
+
+## Contributing
+
+Issues and PRs are welcome, in Chinese or English. We use the DCO (`git commit -s`), not a
+CLA. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[adapter-authoring guide](docs/adapter-authoring.md).
+
+## License
+
+Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Basic Memory is a separate
+AGPL-3.0 project by Basic Machines and is not distributed with MemRelay.
