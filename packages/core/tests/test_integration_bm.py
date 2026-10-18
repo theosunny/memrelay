@@ -59,7 +59,8 @@ async def test_memrelay_serve_over_stdio_like_an_agent(home):
     t = StdioTransport(command=spec.command, args=spec.args, env=env)
     async with Client(t) as c:
         names = sorted(x.name for x in await c.list_tools())
-        assert names == ["get_profile", "propose_memory", "read_memory", "recall", "recent"]
+        from memrelay.gateway import TOOL_WHITELIST
+        assert names == sorted(TOOL_WHITELIST)
         r = await c.call_tool("propose_memory", {"title": "t", "content": "我喜欢冷萃咖啡",
                                                  "type": "preference"})
         assert r.data["status"] == "pending_review"

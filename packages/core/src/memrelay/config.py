@@ -63,6 +63,8 @@ class Config:
     # Persona layer LLM: "off" (rule-based, offline) | "openai-compat" (uses [llm]) |
     # a preset: openai | deepseek | qwen | kimi | ollama  (see memrelay/llm.py)
     persona_llm: str = "off"
+    # Highest visibility answer_as_me may use for your own agents: public|friends|work|private
+    twin_visibility: str = "private"
     llm: LLMConfig = field(default_factory=LLMConfig)
 
     @property
