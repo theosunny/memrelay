@@ -87,6 +87,9 @@ def inbox_list(as_json: bool = typer.Option(False, "--json")) -> None:
     for i, n in items:
         flags = f" [{','.join(n.flags)}]" if n.flags else ""
         typer.echo(f"{i}\n    [{n.type}] {n.title}  (from {n.source_agent}, conf {n.confidence}){flags}")
+        plan = (n.model_extra or {}).get("consolidation")
+        if plan and plan.get("op") != "ADD":
+            typer.echo(f"    → {plan['op']} {plan.get('target', '')}  ({plan.get('reason', '')})")
 
 
 @inbox_app.command("show")
@@ -101,11 +104,12 @@ def inbox_approve(
     type: str | None = typer.Option(None, "--type", help="Override memory type"),
     title: str | None = typer.Option(None, "--title"),
     visibility: str | None = typer.Option(None, "--visibility"),
+    as_new: bool = typer.Option(False, "--as-new", help="Ignore the consolidation plan; add as a new memory"),
 ) -> None:
     _, vault, inbox = _ctx()
     edits = {k: v for k, v in {"type": type, "title": title, "visibility": visibility}.items() if v}
     for iid in item_ids:
-        dest = inbox.approve(iid, edits=edits)
+        dest = inbox.approve(iid, edits=edits, as_new=as_new)
         typer.echo(f"approved {iid} -> {vault.rel(dest)}")
 
 
@@ -128,6 +132,21 @@ def review(
 
     _, _, inbox = _ctx()
     serve(inbox, port=port, open_browser=open_browser, echo=typer.echo)
+
+
+@app.command("consolidate")
+def consolidate_cmd(force: bool = typer.Option(False, help="Re-plan items that already have a plan")) -> None:
+    """Plan ADD/UPDATE/SUPERSEDE/NOOP for inbox items (applied only when you approve). / 整理建议"""
+    from .consolidate import annotate_inbox, get_judge
+
+    cfg, _, inbox = _ctx()
+    judge = get_judge(cfg)
+    plans = annotate_inbox(inbox, judge, force=force)
+    if not plans:
+        typer.echo("Nothing to plan. / 没有需要整理的条目")
+    for iid, p in plans:
+        typer.echo(f"{p.op:9} {iid}" + (f" → {p.target}" if p.target else "") + f"  ({p.reason})")
+    typer.echo(f"judge: {judge.name}. Review with `memrelay inbox list`; nothing is changed until you approve.")
 
 
 # ------------------------------------------------------------------ connect

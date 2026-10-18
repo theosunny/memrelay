@@ -81,9 +81,14 @@ class Inbox:
         return Note.from_markdown(self._path(item_id).read_text(encoding="utf-8"))
 
     # ------------------------------------------------------------------ review
-    def approve(self, item_id: str, *, edits: dict | None = None) -> Path:
+    def approve(self, item_id: str, *, edits: dict | None = None, as_new: bool = False) -> Path:
+        """Move an item into the vault. Honours a consolidation plan (UPDATE/SUPERSEDE/NOOP)
+        unless `as_new`; profile proposals (`profile_file`) replace that profile file."""
+        from .consolidate import apply, archive_copy, unique_path
+
         src = self._path(item_id)
         note = Note.from_markdown(src.read_text(encoding="utf-8"))
+        extra = dict(note.model_extra or {})
         # A human approval is strong evidence: raise confidence to at least 0.8.
         update = {
             "status": Status.active.value,
@@ -92,14 +97,28 @@ class Inbox:
         }
         update.update(edits or {})
         note = Note(**{**note.model_dump(), **update, "body": update.get("body", note.body)})
-        folder = self.vault.folder_for(note.type)
-        folder.mkdir(parents=True, exist_ok=True)
-        dest = folder / f"{slugify(note.title)}.md"
-        n = 1
-        while dest.exists():
-            n += 1
-            dest = folder / f"{slugify(note.title)}-{n}.md"
-        dest.write_text(note.to_markdown(), encoding="utf-8")
+        if extra.get("profile_file"):
+            name = Path(str(extra["profile_file"])).name  # no traversal
+            dest = self.vault.root / "profile" / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                try:
+                    locked = bool(getattr(Note.from_markdown(dest.read_text(encoding="utf-8")), "locked", False))
+                except ValueError:
+                    locked = True  # hand-written file without our frontmatter: never overwrite
+                if locked:
+                    raise PermissionError(f"profile/{name} is locked or hand-written; edit it by hand")
+                archive_copy(self.vault, dest)
+            data = {k: v for k, v in note.model_dump().items() if k != "profile_file"}
+            dest.write_text(Note(**data, body=note.body).to_markdown(), encoding="utf-8")
+            src.unlink()
+            return dest
+        plan = extra.get("consolidation")
+        if plan and not as_new:
+            return apply(self, src, note, plan)
+        data = {k: v for k, v in note.model_dump().items() if k not in ("consolidation", "merge_source")}
+        dest = unique_path(self.vault.target_dir(note), note.title)
+        dest.write_text(Note(**data, body=note.body).to_markdown(), encoding="utf-8")
         src.unlink()
         return dest
 
