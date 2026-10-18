@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import difflib
 import json
 import sys
@@ -147,6 +148,208 @@ def consolidate_cmd(force: bool = typer.Option(False, help="Re-plan items that a
     for iid, p in plans:
         typer.echo(f"{p.op:9} {iid}" + (f" → {p.target}" if p.target else "") + f"  ({p.reason})")
     typer.echo(f"judge: {judge.name}. Review with `memrelay inbox list`; nothing is changed until you approve.")
+
+
+# ------------------------------------------------------------------ persona / twin
+reflect_app = typer.Typer(help="Daily/weekly reflections / 反思", no_args_is_help=True)
+dream_app = typer.Typer(help="Dream: whole-vault consolidation with git snapshot / 大整理", invoke_without_command=True)
+eval_app = typer.Typer(help="Twin fidelity eval / 分身保真度评估", no_args_is_help=True)
+app.add_typer(reflect_app, name="reflect")
+app.add_typer(dream_app, name="dream")
+app.add_typer(eval_app, name="eval")
+
+
+def _date(v: str | None) -> dt.date:
+    return dt.date.fromisoformat(v) if v else dt.date.today()
+
+
+@reflect_app.command("daily")
+def reflect_daily(date: str | None = typer.Option(None, help="YYYY-MM-DD (default today)")) -> None:
+    from .llm import get_llm
+    from .reflect import daily
+
+    cfg, vault, inbox = _ctx()
+    n = daily(vault, _date(date), llm=get_llm(cfg))
+    if n is None:
+        typer.echo("No memories for that day. / 当天没有记忆")
+        return
+    r = inbox.propose(n)
+    typer.echo(f"proposed {r.id} ({n.extractor}); review with `memrelay inbox show {r.id}`")
+
+
+@reflect_app.command("weekly")
+def reflect_weekly(date: str | None = typer.Option(None, help="week end YYYY-MM-DD (default today)")) -> None:
+    from .llm import get_llm
+    from .reflect import weekly
+
+    cfg, vault, inbox = _ctx()
+    n = weekly(vault, _date(date), llm=get_llm(cfg))
+    if n is None:
+        typer.echo("No memories for that week. / 本周没有记忆")
+        return
+    r = inbox.propose(n)
+    typer.echo(f"proposed {r.id} ({n.extractor}); review with `memrelay inbox show {r.id}`")
+
+
+@dream_app.callback()
+def dream_main(ctx: typer.Context) -> None:
+    """Snapshot the vault (git), then propose merges and list stale/long notes."""
+    if ctx.invoked_subcommand:
+        return
+    from .dream import dream
+
+    _, vault, inbox = _ctx()
+    rep = dream(vault, inbox)
+    typer.echo(f"snapshot {rep.snapshot}\nmerge proposals: {len(rep.merges)}  stale: {len(rep.stale)}  "
+               f"long: {len(rep.long)}\nreview: memrelay inbox list   undo: memrelay dream rollback {rep.snapshot[:10]}")
+
+
+@dream_app.command("list")
+def dream_list() -> None:
+    from .dream import snapshots
+
+    for s in snapshots():
+        typer.echo(f"{s['sha'][:10]}  {s['at']}  {s['message']}")
+
+
+@dream_app.command("rollback")
+def dream_rollback(sha: str, yes: bool = typer.Option(False, "--yes", "-y")) -> None:
+    """Restore the vault to a snapshot as a new commit (history kept). / 回滚到快照"""
+    from .dream import rollback
+
+    _, vault, _ = _ctx()
+    if not yes and not typer.confirm(f"Restore vault to {sha}? / 恢复到该快照？", default=False):
+        raise typer.Exit(1)
+    typer.echo(f"rolled back; new commit {rollback(vault, sha)}")
+
+
+@profile_app.command("style")
+def profile_style() -> None:
+    """Style card from your own messages only → inbox. / 生成风格卡"""
+    from .llm import get_llm
+    from .persona import collect_user_texts, style_card
+
+    cfg, _, inbox = _ctx()
+    n = style_card(collect_user_texts(), llm=get_llm(cfg))
+    if n is None:
+        typer.echo("No user messages found in local capture sources. / 未找到你本人的消息")
+        return
+    r = inbox.propose(n)
+    typer.echo(f"proposed {r.id} (profile/style-card.md, {n.evidence} messages)")
+
+
+@profile_app.command("principles")
+def profile_principles(min_evidence: int = typer.Option(2, min=1)) -> None:
+    """Decision principles with ≥N evidence → inbox. / 生成决策原则"""
+    from .persona import principles
+
+    _, vault, inbox = _ctx()
+    n = principles(vault, min_evidence=min_evidence)
+    if n is None:
+        typer.echo(f"No principle has ≥{min_evidence} evidence yet. / 还没有足够证据的原则")
+        return
+    r = inbox.propose(n)
+    typer.echo(f"proposed {r.id} (profile/principles.md)")
+
+
+def _twin_run(coro_fn):
+    import asyncio
+
+    from .backend import make_backend
+
+    cfg, vault, _ = _ctx()
+
+    async def go():
+        b = make_backend(cfg, vault)
+        await b.start()
+        try:
+            return await coro_fn(cfg, vault, b)
+        finally:
+            await b.stop()
+
+    return asyncio.run(go())
+
+
+@app.command("ask")
+def ask(question: str, as_of: str | None = typer.Option(None, "--as-of"),
+        as_json: bool = typer.Option(False, "--json")) -> None:
+    """Ask your twin (same as the answer_as_me MCP tool). / 问分身"""
+    from .llm import get_llm
+    from .twin import answer_as_me
+
+    res = _twin_run(lambda cfg, vault, b: answer_as_me(question, vault=vault, backend=b, llm=get_llm(cfg),
+                                                        as_of=dt.date.fromisoformat(as_of) if as_of else None,
+                                                        ceiling=cfg.twin_visibility))
+    if as_json:
+        typer.echo(json.dumps(res, ensure_ascii=False, indent=2))
+        return
+    typer.echo(f"{res['answer']}\n\nconfidence {res['confidence']}  ({res['mode']})")
+    for c in res["citations"]:
+        typer.echo(f"  [{c['n']}] {c['id']}  {c['title']}")
+    typer.echo(f"\n{res['disclosure']}")
+
+
+@app.command("draft")
+def draft(context: str, channel: str = typer.Option("work", help="work | friends | public | self"),
+          as_json: bool = typer.Option(False, "--json")) -> None:
+    """Draft a message in your style. Prints text only; nothing is sent. / 代拟草稿"""
+    from .llm import get_llm
+    from .twin import draft_as_me
+
+    res = _twin_run(lambda cfg, vault, b: draft_as_me(context, vault=vault, backend=b, llm=get_llm(cfg), channel=channel))
+    if as_json:
+        typer.echo(json.dumps(res, ensure_ascii=False, indent=2))
+        return
+    typer.echo(res["draft"])
+    if res["needs_confirmation"]:
+        typer.echo("\n⚠ 涉及承诺/金额/法律/健康，请本人确认 / needs your confirmation")
+    typer.echo(f"\n{res['note']}")
+
+
+@eval_app.command("init")
+def eval_init(force: bool = typer.Option(False, "--force")) -> None:
+    """Write a sample eval/qa.yaml into the vault. / 生成示例题库"""
+    from .evals import SAMPLE
+
+    _, vault, _ = _ctx()
+    p = vault.root / "eval" / "qa.yaml"
+    if p.exists() and not force:
+        typer.echo(f"exists: {p} (use --force)")
+        return
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(SAMPLE, encoding="utf-8")
+    typer.echo(f"written: {p}")
+
+
+@eval_app.command("run")
+def eval_run(path: str | None = typer.Option(None, help="qa.yaml (default <vault>/eval/qa.yaml)"),
+             as_json: bool = typer.Option(False, "--json")) -> None:
+    """Score the twin: facts, point-in-time, refusals, unknowns. / 运行评估"""
+    from pathlib import Path
+
+    from .evals import load_cases, run_eval
+    from .llm import get_llm
+    from .twin import answer_as_me
+
+    cfg0, vault0, _ = _ctx()
+    cases = load_cases(Path(path) if path else vault0.root / "eval" / "qa.yaml")
+
+    async def go(cfg, vault, b):
+        return await run_eval(cases, lambda q, when: answer_as_me(
+            q, vault=vault, backend=b, llm=get_llm(cfg), as_of=when, ceiling=cfg.twin_visibility))
+
+    rep = _twin_run(go)
+    scores = rep.scores()
+    if as_json:
+        typer.echo(json.dumps({"scores": scores, "results": [
+            {"id": r.case.id, "category": r.case.category, "passed": r.passed, "why": r.why,
+             "answer": r.answer, "confidence": r.confidence} for r in rep.results]}, ensure_ascii=False, indent=2))
+        return
+    for r in rep.results:
+        typer.echo(f"{'PASS' if r.passed else 'FAIL'}  {r.case.category:8} {r.case.id}" + (f"  — {r.why}" if r.why else ""))
+    typer.echo("")
+    for k, v in scores.items():
+        typer.echo(f"{k:9} {v['passed']}/{v['total']}  ({v['accuracy']:.0%})")
 
 
 # ------------------------------------------------------------------ connect
