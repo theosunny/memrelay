@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability / 安全漏洞
+    url: https://github.com/theosunny/memrelay/blob/main/SECURITY.md
+    about: Please report privately, not in a public issue. / 请私下报告，不要公开提 issue。

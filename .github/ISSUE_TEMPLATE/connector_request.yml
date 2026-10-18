@@ -1,0 +1,25 @@
+name: New connector or capture source / 新接入或采集来源
+description: Ask MemRelay to support another agent / 请求支持新的智能体
+labels: [connector]
+body:
+  - type: input
+    id: client
+    attributes:
+      label: Client / app name / 客户端名称
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Official documentation of the config or history location / 配置或历史文件位置的官方文档链接
+      description: MemRelay never guesses paths. Without a source we can only offer guided setup. / 没有来源时只能提供引导式配置。
+    validations:
+      required: true
+  - type: checkboxes
+    id: kind
+    attributes:
+      label: What is needed / 需要什么
+      options:
+        - label: Auto-connect (write MCP config) / 自动接入
+        - label: Capture local history / 采集本地历史
+        - label: Import an export package / 导入导出包

@@ -1,0 +1,37 @@
+name: Bug report / 问题反馈
+description: Something does not work as documented / 功能与文档不符
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / 发生了什么
+      description: Include the command you ran and its output. Remove any personal memory content. / 请附上命令和输出，并删去个人记忆内容。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected / 期望结果
+  - type: input
+    id: version
+    attributes:
+      label: memrelay version (`memrelay version`)
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Agent / client involved (e.g. Cursor 2.x, Claude Code) / 涉及的智能体
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`memrelay doctor` output"
+      render: text
