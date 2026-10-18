@@ -139,27 +139,39 @@ def test_llm_extractor_with_mock_transport():
 
 
 def test_watch_picks_up_new_lines(home, tmp_path, inbox):
+    import os
     import threading
     import time
 
     from memrelay.capture.runner import watch
 
     root = tmp_path / "projects"
-    write_session(root, [_line("user", "我喜欢早起")])
+    p = write_session(root, [_line("user", "我喜欢早起")])
     reports, stop = [], threading.Event()
     th = threading.Thread(target=watch, daemon=True, kwargs=dict(
         source=ClaudeCodeSource(root), extractor=StubExtractor(), inbox=inbox, root=root,
-        on_report=reports.append, stop_event=stop))
+        on_report=reports.append, stop_event=stop, debounce=100))
     th.start()
-    deadline = time.time() + 5
+    deadline = time.time() + 10
     while not reports and time.time() < deadline:
         time.sleep(0.05)
     assert reports and len(reports[0].proposed) == 1
-    time.sleep(0.5)
-    write_session(root, [_line("user", "我习惯晚上写代码")])
-    deadline = time.time() + 15
-    while len(reports) < 2 and time.time() < deadline:
+    # FSEvents can emit a spurious event right after subscribe; wait it out, then append.
+    time.sleep(1.0)
+    with p.open("a", encoding="utf-8") as f:
+        f.write(_line("user", "我习惯晚上写代码"))
+        f.flush()
+        os.fsync(f.fileno())
+    os.utime(p, None)
+    # Poll inbox (not report count): an empty re-run must not end the wait early.
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if len(inbox.list()) >= 2:
+            break
         time.sleep(0.1)
     stop.set()
     th.join(timeout=5)
-    assert len(reports) >= 2 and sum(len(r.proposed) for r in reports) == 2
+    assert len(inbox.list()) >= 2, (
+        f"inbox={[(n.title, n) for _, n in inbox.list()]!r} "
+        f"reports={[(r.messages, len(r.proposed)) for r in reports]!r}"
+    )

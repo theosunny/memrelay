@@ -38,7 +38,7 @@ def run_once(source: CaptureSource, extractor: Extractor, inbox: Inbox,
 
 
 def watch(source, extractor: Extractor, inbox: Inbox, root: Path, on_report=None,
-          stop_event=None) -> None:
+          stop_event=None, debounce: int = 2000) -> None:
     """Re-run capture whenever transcript files change (watchfiles, cross-platform)."""
     from watchfiles import watch as _watch
 
@@ -47,7 +47,8 @@ def watch(source, extractor: Extractor, inbox: Inbox, root: Path, on_report=None
     if on_report:
         on_report(rep)
     root.mkdir(parents=True, exist_ok=True)
-    for changes in _watch(root, stop_event=stop_event, debounce=2000):
+    root = root.resolve()
+    for changes in _watch(root, stop_event=stop_event, debounce=debounce):
         if any(str(p).endswith(".jsonl") for _, p in changes):
             rep = run_once(source, extractor, inbox, state)
             if on_report:
