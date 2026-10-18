@@ -47,7 +47,6 @@ async def test_gateway_over_real_basic_memory(home):
 async def test_memrelay_serve_over_stdio_like_an_agent(home):
     """Launch `python -m memrelay serve` exactly as the connect adapters configure it."""
     import os
-    import sys
 
     from fastmcp.client.transports import StdioTransport
 
@@ -64,5 +63,5 @@ async def test_memrelay_serve_over_stdio_like_an_agent(home):
         r = await c.call_tool("propose_memory", {"title": "t", "content": "我喜欢冷萃咖啡",
                                                  "type": "preference"})
         assert r.data["status"] == "pending_review"
-    assert sys.executable == spec.command
+    assert spec.args == ["serve"]  # the installed console script, as packaged
     assert len(list((home / "vault" / "inbox").glob("*.md"))) == 1

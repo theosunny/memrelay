@@ -20,12 +20,27 @@ from typing import Any
 from ..config import data_dir
 
 
+def _default_command() -> tuple[str, list[str]]:
+    """Prefer the installed `memrelay` console script (absolute path, so GUI apps that do not
+    inherit the shell PATH can still launch it); fall back to `<this python> -m memrelay`."""
+    exe = shutil.which("memrelay")
+    if exe:
+        return str(Path(exe).resolve()), ["serve"]
+    return sys.executable, ["-m", "memrelay", "serve"]
+
+
 @dataclass
 class ServerSpec:
     name: str = "memrelay"
-    command: str = field(default_factory=lambda: sys.executable)
-    args: list[str] = field(default_factory=lambda: ["-m", "memrelay", "serve"])
+    command: str = ""
+    args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.command:
+            self.command, default_args = _default_command()
+            if not self.args:
+                self.args = default_args
 
 
 @dataclass
@@ -88,7 +103,7 @@ class AgentAdapter(ABC):
         d.mkdir(parents=True, exist_ok=True)
         stamp = dt.datetime.now().strftime("%Y%m%dT%H%M%S%f")
         if path.exists():
-            dest = d / f"{stamp}.json"
+            dest = d / f"{stamp}.bak"
             shutil.copy2(path, dest)
         else:
             dest = d / f"{stamp}.absent"
