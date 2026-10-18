@@ -16,7 +16,7 @@ from .vault import Vault
 app = typer.Typer(help="MemRelay (忆桥): one reviewed personal memory for all your agents.",
                   no_args_is_help=True, add_completion=False)
 inbox_app = typer.Typer(help="Review proposed memories / 审核收件箱", no_args_is_help=True)
-connect_app = typer.Typer(help="Connect agents (write MCP configs) / 接入智能体", no_args_is_help=True)
+connect_app = typer.Typer(help="Connect agents (write MCP configs) / 接入智能体", invoke_without_command=True)
 capture_app = typer.Typer(help="Capture local agent history / 采集本地历史", no_args_is_help=True)
 profile_app = typer.Typer(help="Core profile / 核心画像", no_args_is_help=True)
 app.add_typer(inbox_app, name="inbox")
@@ -118,14 +118,36 @@ def inbox_reject(item_ids: list[str], reason: str | None = typer.Option(None, "-
 
 
 # ------------------------------------------------------------------ connect
+@connect_app.callback()
+def connect_main(
+    ctx: typer.Context,
+    all_: bool = typer.Option(False, "--all", help="Interactive wizard: discover every agent / 交互式向导"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Apply without asking"),
+    command: str | None = typer.Option(None, help="Override the MCP server command"),
+) -> None:
+    if ctx.invoked_subcommand is not None:
+        return
+    if not all_:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(0)
+    from .adapters import ServerSpec
+    from .wizard import run_wizard
+
+    spec = ServerSpec(command=command, args=["serve"]) if command else ServerSpec()
+    res = run_wizard(spec, confirm=lambda q: typer.confirm(q, default=True), echo=typer.echo, yes=yes)
+    if res.errors:
+        raise typer.Exit(2)
+
+
 @connect_app.command("list")
 def connect_list() -> None:
-    from .adapters import ADAPTERS
+    from .adapters import ADAPTERS, is_guided
 
     for aid, cls in ADAPTERS.items():
         a = cls()
-        typer.echo(f"{aid:15} {a.name:15} detected={a.detect()!s:5} installed={a.installed() is not None!s:5}")
-        typer.echo(f"{'':15} {a.config_path()}  (source: {a.sources[0]})")
+        kind = "guided" if is_guided(a) else f"detected={a.detect()!s:5} installed={a.installed() is not None!s:5}"
+        typer.echo(f"{aid:15} {a.name:26} {kind}")
+        typer.echo(f"{'':15} {a.config_path() or '(manual setup)'}  (source: {a.sources[0]})")
 
 
 def _print_change(ch) -> None:
@@ -135,7 +157,9 @@ def _print_change(ch) -> None:
         typer.echo("  " + json.dumps(ch.after, ensure_ascii=False))
     if ch.backup:
         typer.echo(f"  backup: {ch.backup}")
-    if ch.note:
+    if ch.note and ch.action == "guided":
+        typer.echo(ch.note)
+    elif ch.note:
         typer.echo(f"  note: {ch.note}")
 
 
