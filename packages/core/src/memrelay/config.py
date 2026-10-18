@@ -58,6 +58,7 @@ class Config:
     bm_config_dir: str | None = None
     backend: str = "basic-memory"  # "basic-memory" | "local"
     extractor: str = "stub"  # "stub" | "openai"
+    hf_endpoint: str = "auto"  # "auto" | "off" | URL (see memrelay/hf.py)
     llm: LLMConfig = field(default_factory=LLMConfig)
 
     @property

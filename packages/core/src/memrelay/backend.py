@@ -70,11 +70,19 @@ class BasicMemoryBackend:
         self._client = None
         self._stack = None
 
+    def env(self) -> dict[str, str]:
+        return self._env()
+
     def _env(self) -> dict[str, str]:
         env = dict(os.environ)
         # Basic Memory switches to "test mode" (no file sync) when it sees this variable
         # (basic_memory/config_models.py); it must not leak from our own test runs.
         env.pop("PYTEST_CURRENT_TEST", None)
+        from .hf import resolve_endpoint
+
+        hf = resolve_endpoint(self.cfg.hf_endpoint, env)
+        if hf:
+            env["HF_ENDPOINT"] = hf
         d = self.cfg.resolved_bm_config_dir()
         if d:
             d.mkdir(parents=True, exist_ok=True)
@@ -87,10 +95,16 @@ class BasicMemoryBackend:
 
     def ensure_project(self) -> None:
         cmd = [*self.cfg.bm_command, "project", "add", self.cfg.bm_project, str(self.vault.root)]
-        r = subprocess.run(cmd, env=self._env(), capture_output=True, text=True, timeout=120)
+        env = self._env()
+        r = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=120)
         out = (r.stdout + r.stderr).lower()
         if r.returncode != 0 and "exist" not in out:
             raise RuntimeError(f"basic-memory project add failed: {r.stdout}{r.stderr}")
+        # Make it the default project inside MemRelay's isolated Basic Memory config, so
+        # project-less commands such as `basic-memory import ...` land in our vault.
+        if self.cfg.resolved_bm_config_dir() is not None:
+            subprocess.run([*self.cfg.bm_command, "project", "default", self.cfg.bm_project],
+                           env=env, capture_output=True, text=True, timeout=120)
 
     async def start(self) -> None:
         from contextlib import AsyncExitStack
