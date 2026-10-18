@@ -46,6 +46,7 @@ class LLMConfig:
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
     api_key_env: str = "OPENAI_API_KEY"  # name of the env var, never the key itself
+    model_override: str = ""  # with a preset (deepseek/qwen/kimi/ollama): use this model instead
 
 
 @dataclass
@@ -59,6 +60,9 @@ class Config:
     backend: str = "basic-memory"  # "basic-memory" | "local"
     extractor: str = "stub"  # "stub" | "openai"
     hf_endpoint: str = "auto"  # "auto" | "off" | URL (see memrelay/hf.py)
+    # Persona layer LLM: "off" (rule-based, offline) | "openai-compat" (uses [llm]) |
+    # a preset: openai | deepseek | qwen | kimi | ollama  (see memrelay/llm.py)
+    persona_llm: str = "off"
     llm: LLMConfig = field(default_factory=LLMConfig)
 
     @property

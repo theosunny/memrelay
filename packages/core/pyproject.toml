@@ -1,6 +1,6 @@
 [project]
 name = "memrelay"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "MemRelay (忆桥): one reviewed, provenance-tracked personal memory shared by all your AI agents"
 readme = "README.md"
 license = "Apache-2.0"
