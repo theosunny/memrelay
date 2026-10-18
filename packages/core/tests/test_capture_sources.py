@@ -58,3 +58,35 @@ def test_gemini_capture(home, tmp_path, inbox):
     assert r.messages == 2 and len(r.proposed) == 1
     assert "dark mode" in inbox.list()[0][1].title
     assert gemini.default_root(tmp_path) == tmp_path / ".gemini" / "tmp"
+
+
+def test_watch_all(home, tmp_path, inbox):
+    import threading
+    import time
+
+    from memrelay.capture.claude_code import ClaudeCodeSource
+    from memrelay.capture.runner import watch_all
+
+    cc_root = tmp_path / "cc"
+    (cc_root / "-p").mkdir(parents=True)
+    f = cc_root / "-p" / "s.jsonl"
+    f.write_text(jl({"type": "user", "message": {"role": "user", "content": "我喜欢早起跑步"}}), encoding="utf-8")
+    cx_root = tmp_path / "missing-codex"  # absent roots are fine
+    reports, stop = [], threading.Event()
+    th = threading.Thread(target=watch_all, daemon=True, kwargs=dict(
+        sources=[ClaudeCodeSource(cc_root), codex.CodexSource(cx_root)], extractor=StubExtractor(),
+        inbox=inbox, on_report=lambda sid, r: reports.append((sid, r)), stop_event=stop, debounce=200))
+    th.start()
+    deadline = time.time() + 5
+    while len(reports) < 2 and time.time() < deadline:
+        time.sleep(0.05)
+    time.sleep(0.5)
+    with f.open("a", encoding="utf-8") as fh:
+        fh.write(jl({"type": "user", "message": {"role": "user", "content": "我习惯喝美式咖啡"}}))
+    deadline = time.time() + 15
+    while len(reports) < 3 and time.time() < deadline:
+        time.sleep(0.1)
+    stop.set()
+    th.join(timeout=5)
+    assert sum(len(r.proposed) for _, r in reports) == 2
+    assert {sid for sid, _ in reports} == {"claude-code", "codex"}

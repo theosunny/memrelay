@@ -224,6 +224,90 @@ def capture_claude_code(
         report(run_once(src, ex, inbox))
 
 
+@capture_app.command("all")
+def capture_all(
+    watch: bool = typer.Option(False, "--watch", help="Keep running (used by autostart)"),
+    extractor: str | None = typer.Option(None, help="stub | openai (default from config)"),
+) -> None:
+    """All local sources: Claude Code, Codex, Gemini CLI."""
+    from .capture.registry import SOURCES
+    from .capture.runner import run_once, watch_all
+    from .extract.base import get_extractor
+
+    cfg, _, inbox = _ctx()
+    ex = get_extractor(extractor or cfg.extractor, cfg)
+    sources = [cls() for cls in SOURCES.values()]
+
+    def report(sid, r) -> None:
+        typer.echo(f"{sid:12} messages={r.messages} candidates={r.candidates} "
+                   f"proposed={len(r.proposed)} duplicates={r.duplicates}")
+
+    if watch:
+        watch_all(sources, ex, inbox, on_report=report)
+    else:
+        for s in sources:
+            report(s.id, run_once(s, ex, inbox))
+
+
+@capture_app.command("source")
+def capture_source(source_id: str) -> None:
+    """One source by id: claude-code | codex | gemini-cli."""
+    from .capture.registry import SOURCES
+    from .capture.runner import run_once
+    from .extract.base import get_extractor
+
+    cfg, _, inbox = _ctx()
+    if source_id not in SOURCES:
+        typer.echo(f"unknown source; known: {', '.join(SOURCES)}")
+        raise typer.Exit(1)
+    r = run_once(SOURCES[source_id](), get_extractor(cfg.extractor, cfg), inbox)
+    typer.echo(f"messages={r.messages} candidates={r.candidates} proposed={len(r.proposed)} duplicates={r.duplicates}")
+
+
+# ------------------------------------------------------------------ autostart
+autostart_app = typer.Typer(help="Run capture at login / 开机自启", no_args_is_help=True)
+app.add_typer(autostart_app, name="autostart")
+
+
+def _print_plan(plan, dry_run: bool) -> None:
+    tag = "DRY-RUN " if dry_run else ""
+    for path, text in plan.write.items():
+        typer.echo(f"{tag}write {path}:\n{text}")
+    for c in plan.commands:
+        typer.echo(f"{tag}run: {' '.join(c)}")
+    for path in plan.remove:
+        typer.echo(f"{tag}remove {path}")
+    for n in plan.notes:
+        typer.echo(f"note: {n}")
+
+
+@autostart_app.command("install")
+def autostart_install(
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    method: str = typer.Option("default", help="Windows only: default (Task Scheduler) | startup-folder"),
+) -> None:
+    from .autostart import Autostart
+
+    _print_plan(Autostart(method=method).install(dry_run=dry_run), dry_run)
+
+
+@autostart_app.command("uninstall")
+def autostart_uninstall(
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    method: str = typer.Option("default"),
+) -> None:
+    from .autostart import Autostart
+
+    _print_plan(Autostart(method=method).uninstall(dry_run=dry_run), dry_run)
+
+
+@autostart_app.command("status")
+def autostart_status(method: str = typer.Option("default")) -> None:
+    from .autostart import Autostart
+
+    typer.echo("installed" if Autostart(method=method).installed() else "not installed")
+
+
 # ------------------------------------------------------------------ profile
 @profile_app.command("build")
 def profile_build(yes: bool = typer.Option(False, "--yes", "-y", help="Write without asking")) -> None:

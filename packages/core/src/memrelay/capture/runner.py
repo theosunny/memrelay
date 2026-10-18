@@ -52,3 +52,25 @@ def watch(source, extractor: Extractor, inbox: Inbox, root: Path, on_report=None
             rep = run_once(source, extractor, inbox, state)
             if on_report:
                 on_report(rep)
+
+
+def watch_all(sources, extractor: Extractor, inbox: Inbox, on_report=None, stop_event=None,
+              debounce: int = 2000) -> None:
+    """Capture from every source once, then on any change under any existing source root."""
+    from watchfiles import watch as _watch
+
+    states = {s.id: CursorState(s.id) for s in sources}
+    for s in sources:
+        rep = run_once(s, extractor, inbox, states[s.id])
+        if on_report:
+            on_report(s.id, rep)
+    roots = {s.id: s.root for s in sources if s.root.exists()}
+    if not roots:
+        return
+    for changes in _watch(*roots.values(), stop_event=stop_event, debounce=debounce):
+        changed = [str(p) for _, p in changes if str(p).endswith(".jsonl")]
+        for s in sources:
+            if s.id in roots and any(c.startswith(str(roots[s.id])) for c in changed):
+                rep = run_once(s, extractor, inbox, states[s.id])
+                if on_report:
+                    on_report(s.id, rep)
