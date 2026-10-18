@@ -25,6 +25,8 @@ uv run ruff check .
 
 ## Adding an agent adapter
 
+Full guide with examples: [docs/adapter-authoring.md](docs/adapter-authoring.md).
+
 1. Subclass `memrelay.adapters.base.JsonMcpAdapter` (or `AgentAdapter`) in
    `packages/core/src/memrelay/adapters/<agent>.py`.
 2. Implement `config_path(platform)` for `win32`, `darwin`, `linux` and **cite the official doc
