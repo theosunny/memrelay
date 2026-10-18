@@ -22,11 +22,16 @@ from ..config import data_dir
 
 def _default_command() -> tuple[str, list[str]]:
     """Prefer the installed `memrelay` console script (absolute path, so GUI apps that do not
-    inherit the shell PATH can still launch it). Symlinks are kept, not resolved: e.g. the
-    `uv tool` / pipx shim in ~/.local/bin stays valid across upgrades. Fallback: `<python> -m memrelay`."""
-    exe = shutil.which("memrelay")
-    if exe:
-        return str(Path(exe).absolute()), ["serve"]
+    inherit the shell PATH can still launch it).
+
+    Lookup order: ``memrelay``, then Windows shims ``memrelay.exe`` / ``.cmd`` / ``.bat``.
+    Symlinks are kept unresolved (``.absolute()``, not ``.resolve()``) so uv-tool / pipx shims
+    in ~/.local/bin stay valid across upgrades. Fallback: ``<python> -m memrelay``.
+    """
+    for name in ("memrelay", "memrelay.exe", "memrelay.cmd", "memrelay.bat"):
+        exe = shutil.which(name)
+        if exe:
+            return str(Path(exe).absolute()), ["serve"]
     return sys.executable, ["-m", "memrelay", "serve"]
 
 

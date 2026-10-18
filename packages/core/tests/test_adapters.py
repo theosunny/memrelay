@@ -202,10 +202,10 @@ def test_default_spec_prefers_installed_console_script(monkeypatch, tmp_path):
 
     exe = tmp_path / "bin" / "memrelay"
     exe.parent.mkdir()
-    exe.write_text("#!/bin/sh\n")
+    exe.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(base.shutil, "which", lambda name: str(exe) if name == "memrelay" else None)
     s = ServerSpec()
-    assert s.command == str(exe.resolve()) and s.args == ["serve"]
+    assert s.command == str(exe.absolute()) and s.args == ["serve"]
     monkeypatch.setattr(base.shutil, "which", lambda name: None)
     s = ServerSpec()
     assert s.command == sys.executable and s.args == ["-m", "memrelay", "serve"]

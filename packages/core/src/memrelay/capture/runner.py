@@ -67,10 +67,16 @@ def watch_all(sources, extractor: Extractor, inbox: Inbox, on_report=None, stop_
     roots = {s.id: s.root for s in sources if s.root.exists()}
     if not roots:
         return
+    # Resolve roots once: on macOS FSEvents often reports /private/var/... while the
+    # caller passed /var/... (symlink); plain str.startswith then silently misses events.
+    resolved = {sid: root.resolve() for sid, root in roots.items()}
     for changes in _watch(*roots.values(), stop_event=stop_event, debounce=debounce):
-        changed = [str(p) for _, p in changes if str(p).endswith(".jsonl")]
+        changed = [Path(p).resolve() for _, p in changes if str(p).endswith(".jsonl")]
         for s in sources:
-            if s.id in roots and any(c.startswith(str(roots[s.id])) for c in changed):
+            root = resolved.get(s.id)
+            if root is None:
+                continue
+            if any(c == root or root in c.parents for c in changed):
                 rep = run_once(s, extractor, inbox, states[s.id])
                 if on_report:
                     on_report(s.id, rep)

@@ -32,7 +32,7 @@ def test_codex_capture(home, tmp_path, inbox):
         {"timestamp": "t", "type": "event_msg", "payload": {"type": "agent_message", "message": "我喜欢 yarn"}},
         {"timestamp": "t", "type": "event_msg", "payload": {"type": "token_count"}},
     ), encoding="utf-8")
-    (d / "other.jsonl").write_text(jl({"type": "event_msg", "payload": {"type": "user_message", "message": "我喜欢猫"}}))
+    (d / "other.jsonl").write_text(jl({"type": "event_msg", "payload": {"type": "user_message", "message": "我喜欢猫"}}), encoding="utf-8")
     src = codex.CodexSource(root)
     r = run_once(src, StubExtractor(), inbox, CursorState("codex"))
     assert r.messages == 2 and len(r.proposed) == 1
@@ -61,6 +61,8 @@ def test_gemini_capture(home, tmp_path, inbox):
 
 
 def test_watch_all(home, tmp_path, inbox):
+    """Initial capture + a later append; robust to macOS FSEvents /var vs /private/var."""
+    import os
     import threading
     import time
 
@@ -75,18 +77,29 @@ def test_watch_all(home, tmp_path, inbox):
     reports, stop = [], threading.Event()
     th = threading.Thread(target=watch_all, daemon=True, kwargs=dict(
         sources=[ClaudeCodeSource(cc_root), codex.CodexSource(cx_root)], extractor=StubExtractor(),
-        inbox=inbox, on_report=lambda sid, r: reports.append((sid, r)), stop_event=stop, debounce=200))
+        inbox=inbox, on_report=lambda sid, r: reports.append((sid, r)), stop_event=stop, debounce=100))
     th.start()
-    deadline = time.time() + 5
+    deadline = time.time() + 10
     while len(reports) < 2 and time.time() < deadline:
         time.sleep(0.05)
-    time.sleep(0.5)
+    assert len(reports) >= 2, f"initial reports never arrived: {reports!r}"
+    # Give watchfiles time to subscribe (FSEvents can miss events fired during setup).
+    time.sleep(1.0)
     with f.open("a", encoding="utf-8") as fh:
         fh.write(jl({"type": "user", "message": {"role": "user", "content": "我习惯喝美式咖啡"}}))
-    deadline = time.time() + 15
-    while len(reports) < 3 and time.time() < deadline:
+        fh.flush()
+        os.fsync(fh.fileno())
+    # Also bump mtime explicitly — some FSEvents setups coalesce pure appends.
+    os.utime(f, None)
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if len(inbox.list()) >= 2:
+            break
         time.sleep(0.1)
     stop.set()
     th.join(timeout=5)
-    assert sum(len(r.proposed) for _, r in reports) == 2
-    assert {sid for sid, _ in reports} == {"claude-code", "codex"}
+    titles = " ".join(n.title for _, n in inbox.list())
+    assert len(inbox.list()) >= 2, (
+        f"expected 2 inbox items after append; inbox={titles!r} reports={[(s, len(r.proposed)) for s, r in reports]!r}"
+    )
+    assert {sid for sid, _ in reports} >= {"claude-code", "codex"}

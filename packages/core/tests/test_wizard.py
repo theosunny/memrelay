@@ -9,7 +9,7 @@ SPEC = ServerSpec(command="/x/memrelay", args=["serve"])
 def make_env(tmp_path):
     (tmp_path / ".cursor").mkdir()
     (tmp_path / ".gemini").mkdir()
-    (tmp_path / ".gemini" / "settings.json").write_text('{"theme": "x"}')
+    (tmp_path / ".gemini" / "settings.json").write_text('{"theme": "x"}', encoding="utf-8")
     (tmp_path / ".codex").mkdir()
     return Env("linux", tmp_path, {})
 
@@ -46,6 +46,6 @@ def test_wizard_asks_per_agent(home, tmp_path):
 
 def test_wizard_yes_and_errors(home, tmp_path):
     env = make_env(tmp_path)
-    (tmp_path / ".cursor" / "mcp.json").write_text("{broken")
+    (tmp_path / ".cursor" / "mcp.json").write_text("{broken", encoding="utf-8")
     res = run_wizard(SPEC, lambda q: False, lambda s: None, env=env, yes=True, include_guided=False)
     assert "cursor" in res.errors and sorted(c.adapter for c in res.applied) == ["codex", "gemini-cli"]

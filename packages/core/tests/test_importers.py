@@ -103,7 +103,7 @@ def test_archive_command(monkeypatch):
 
     def fake_run(cmd, **kw):
         seen["cmd"] = cmd
-        seen["content"] = open(cmd[-3]).read()
+        seen["content"] = open(cmd[-3], encoding="utf-8").read()
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr(importers.subprocess, "run", fake_run)

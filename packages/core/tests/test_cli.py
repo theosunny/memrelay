@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -51,20 +52,32 @@ def test_end_to_end_cli(home, tmp_path, monkeypatch):
     assert "vault:" in ok("doctor")
 
 
-def test_installed_script_symlink_is_kept(tmp_path, monkeypatch):
+def test_installed_script_on_path_is_preferred(tmp_path, monkeypatch):
+    """Unix: keep unresolved symlink. Windows: find memrelay.cmd/.exe via PATHEXT."""
     import os
+    import sys
 
     from memrelay.adapters.base import _default_command
 
-    real = tmp_path / "venv" / "bin" / "memrelay"
-    real.parent.mkdir(parents=True)
-    real.write_text("#!/bin/sh\n")
-    real.chmod(0o755)
-    shim = tmp_path / "bin" / "memrelay"
-    shim.parent.mkdir()
-    os.symlink(real, shim)
-    monkeypatch.setenv("PATH", str(shim.parent))
-    assert _default_command() == (str(shim), ["serve"])
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    if sys.platform.startswith("win"):
+        stub = bin_dir / "memrelay.cmd"
+        stub.write_text("@echo off\r\n", encoding="utf-8")
+        monkeypatch.setenv("PATH", str(bin_dir))
+        cmd, args = _default_command()
+        assert Path(cmd).name.lower() in ("memrelay.cmd", "memrelay.exe", "memrelay.bat")
+        assert Path(cmd).parent == bin_dir
+        assert args == ["serve"]
+    else:
+        real = tmp_path / "venv" / "bin" / "memrelay"
+        real.parent.mkdir(parents=True)
+        real.write_text("#!/bin/sh\n", encoding="utf-8")
+        real.chmod(0o755)
+        shim = bin_dir / "memrelay"
+        os.symlink(real, shim)
+        monkeypatch.setenv("PATH", str(bin_dir))
+        assert _default_command() == (str(shim), ["serve"])
 
 
 def test_cli_autostart_dry_run_writes_nothing(home, tmp_path, monkeypatch):
@@ -95,5 +108,5 @@ def test_cli_capture_all_and_connect_all(home, tmp_path, monkeypatch):
     out = ok("capture", "all")
     assert "codex" in out and "proposed=1" in out
     out = ok("connect", "--all", "--yes")
-    settings = json.loads((fake / ".gemini" / "settings.json").read_text())
+    settings = json.loads((fake / ".gemini" / "settings.json").read_text(encoding="utf-8"))
     assert "memrelay" in settings["mcpServers"]
