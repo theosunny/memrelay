@@ -12,4 +12,6 @@
 - **审核（review）**：`memrelay inbox list / show / approve / reject`。
 - **画像（profile）**：从已审核记忆生成精简核心画像，注入到不支持 MCP 的智能体。
 
+v0.1 当前能力：`connect --all` 向导（Claude Code、Cursor、Claude Desktop、Windsurf、Codex、Gemini CLI、VS Code Copilot、Cline；豆包/Kimi/千问 为“生成配置 + 引导步骤”）、`capture all`（Claude Code / Codex / Gemini CLI）、`import`（ChatGPT / Claude 导出包，导入前询问）、`review`（本机网页审核）、`autostart`（开机自启，支持 `--dry-run`）、模型下载自动回退 hf-mirror.com。所有路径及出处见 `docs/client-config-paths.md`。
+
 快速开始与目录结构见英文 README。Basic Memory 为 AGPL-3.0-or-later，**不随本项目分发**，详见 `NOTICE`。

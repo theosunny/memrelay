@@ -33,7 +33,17 @@ uv run memrelay capture claude-code   # one-shot incremental capture -> inbox/
 uv run memrelay inbox list
 uv run memrelay profile build
 uv run memrelay serve                 # MCP gateway over stdio (what agents launch)
+uv run memrelay connect --all         # wizard: discover agents, preview, confirm each
+uv run memrelay capture all           # Claude Code + Codex + Gemini CLI
+uv run memrelay import scan           # find ChatGPT / Claude exports in Downloads
+uv run memrelay import run            # asks before importing each package
+uv run memrelay review                # local web review UI on 127.0.0.1
+uv run memrelay autostart install --dry-run   # launchd / systemd --user / Task Scheduler
 ```
+
+For real use, install the CLI (`uv tool install ./packages/core` or the built wheel); agent
+configs then point at the installed `memrelay` script. Every path MemRelay touches, with its
+source, is in [docs/client-config-paths.md](docs/client-config-paths.md).
 
 ## Repository layout
 
