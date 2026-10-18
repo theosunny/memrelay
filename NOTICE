@@ -1,0 +1,12 @@
+MemRelay (忆桥)
+Copyright 2026 The MemRelay Authors
+
+This product is licensed under the Apache License, Version 2.0.
+
+MemRelay talks to Basic Memory (https://github.com/basicmachines-co/basic-memory,
+AGPL-3.0-or-later) only as a separately installed program over the MCP stdio
+protocol. Basic Memory is not bundled with, linked into, or distributed as part
+of MemRelay.
+
+Portions of the extraction prompt in memrelay/extract/llm.py are adapted from
+Mem0 (https://github.com/mem0ai/mem0), Apache License 2.0.
