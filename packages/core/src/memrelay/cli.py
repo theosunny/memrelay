@@ -117,6 +117,19 @@ def inbox_reject(item_ids: list[str], reason: str | None = typer.Option(None, "-
         typer.echo(f"rejected {iid} -> {vault.rel(dest)}")
 
 
+@app.command("review")
+def review(
+    web: bool = typer.Option(True, "--web/--no-web", help="Open the local web review UI"),
+    port: int = typer.Option(0, help="Port on 127.0.0.1 (0 = random free port)"),
+    open_browser: bool = typer.Option(True, "--open/--no-open"),
+) -> None:
+    """Review the inbox in a local browser page (127.0.0.1 only). / 本地网页审核"""
+    from .web import serve
+
+    _, _, inbox = _ctx()
+    serve(inbox, port=port, open_browser=open_browser, echo=typer.echo)
+
+
 # ------------------------------------------------------------------ connect
 @connect_app.callback()
 def connect_main(
