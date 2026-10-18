@@ -49,3 +49,51 @@ def test_end_to_end_cli(home, tmp_path, monkeypatch):
     assert not (fake_home / ".cursor" / "mcp.json").exists()
     assert "claude-code" in ok("connect", "list")
     assert "vault:" in ok("doctor")
+
+
+def test_installed_script_symlink_is_kept(tmp_path, monkeypatch):
+    import os
+
+    from memrelay.adapters.base import _default_command
+
+    real = tmp_path / "venv" / "bin" / "memrelay"
+    real.parent.mkdir(parents=True)
+    real.write_text("#!/bin/sh\n")
+    real.chmod(0o755)
+    shim = tmp_path / "bin" / "memrelay"
+    shim.parent.mkdir()
+    os.symlink(real, shim)
+    monkeypatch.setenv("PATH", str(shim.parent))
+    assert _default_command() == (str(shim), ["serve"])
+
+
+def test_cli_autostart_dry_run_writes_nothing(home, tmp_path, monkeypatch):
+    fake = tmp_path / "u"
+    fake.mkdir()
+    monkeypatch.setenv("HOME", str(fake))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(fake / ".config"))
+    out = ok("autostart", "install", "--dry-run")
+    assert "capture" in out and "--watch" in out
+    assert not any(p.is_file() for p in fake.rglob("*"))
+    assert "not installed" in ok("autostart", "status").lower() or "未" in ok("autostart", "status")
+
+
+def test_cli_capture_all_and_connect_all(home, tmp_path, monkeypatch):
+    fake = tmp_path / "u"
+    (fake / ".gemini").mkdir(parents=True)
+    for k, v in {"HOME": fake, "USERPROFILE": fake, "XDG_CONFIG_HOME": fake / ".config",
+                 "APPDATA": fake / "AppData", "CODEX_HOME": fake / ".codex",
+                 "CLAUDE_CONFIG_DIR": fake / ".claude", "COPILOT_HOME": fake / ".copilot"}.items():
+        monkeypatch.setenv(k, str(v))
+    monkeypatch.delenv("CLINE_MCP_SETTINGS_PATH", raising=False)
+    monkeypatch.delenv("CLINE_DATA_DIR", raising=False)
+    day = fake / ".codex" / "sessions" / "2026" / "10" / "18"
+    day.mkdir(parents=True)
+    (day / "rollout-x.jsonl").write_text(json.dumps(
+        {"timestamp": "t", "type": "event_msg", "payload": {"type": "user_message", "message": "我喜欢用 Rust 写工具"}},
+        ensure_ascii=False) + "\n", encoding="utf-8")
+    out = ok("capture", "all")
+    assert "codex" in out and "proposed=1" in out
+    out = ok("connect", "--all", "--yes")
+    settings = json.loads((fake / ".gemini" / "settings.json").read_text())
+    assert "memrelay" in settings["mcpServers"]
