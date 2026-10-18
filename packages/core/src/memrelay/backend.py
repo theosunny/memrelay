@@ -72,6 +72,9 @@ class BasicMemoryBackend:
 
     def _env(self) -> dict[str, str]:
         env = dict(os.environ)
+        # Basic Memory switches to "test mode" (no file sync) when it sees this variable
+        # (basic_memory/config_models.py); it must not leak from our own test runs.
+        env.pop("PYTEST_CURRENT_TEST", None)
         d = self.cfg.resolved_bm_config_dir()
         if d:
             d.mkdir(parents=True, exist_ok=True)
