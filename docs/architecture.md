@@ -41,6 +41,13 @@ flowchart TB
 | `autostart.py` | launchd / systemd --user / Task Scheduler entries for `capture all --watch` |
 | `web.py` | Local review UI (Starlette, 127.0.0.1, token + CSRF) |
 | `hf.py` | `HF_ENDPOINT` mirror fallback for the embedding download |
+| `temporal.py` | v0.2: validity windows; "now" vs point-in-time visibility |
+| `consolidate.py` | v0.2: ADD/UPDATE/SUPERSEDE/NOOP plans (rules or LLM), applied on approval, archive-not-delete |
+| `reflect.py` / `dream.py` | v0.2: daily/weekly reflections with validated citations; Dream with git snapshot + rollback |
+| `persona.py` | v0.2: style card (user's own words only) and principles (≥2 evidence) |
+| `twin.py` | v0.2: `answer_as_me` / `draft_as_me` with disclosure, citations, refusals, visibility ceiling, audit log |
+| `llm.py` | v0.2: OpenAI-compatible chat LLM + presets (DeepSeek, Qwen, Kimi, Ollama) and `StubLLM` |
+| `evals.py` | v0.2: fidelity eval harness over `eval/qa.yaml` |
 
 ## Design rules
 

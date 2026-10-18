@@ -12,6 +12,7 @@ personal memory you own**: plain Markdown on your disk, every memory with its so
 **nothing saved until you approve it**.
 
 > Status: **v0.1.0** — usable preview for developers. Not on PyPI yet. Feedback welcome.
+> 🧪 = implemented on `main` for the upcoming v0.2, not yet released.
 
 ## Features
 
@@ -24,11 +25,11 @@ personal memory you own**: plain Markdown on your disk, every memory with its so
 | 🛡️ | **Gateway**: whitelisted MCP tools, read-only for agents except `propose_memory`; secret redaction, injection flags | ✅ v0.1 |
 | 🧭 | **Core profile** generated from reviewed memories, with links to sources | ✅ v0.1 |
 | 🇨🇳 | China-friendly: HF mirror fallback for the embedding model; guided setup for 豆包 / Kimi / 千问 | ✅ v0.1 |
-| ⏳ | Temporal memory (`valid_from` / `valid_to` / `superseded_by`, `as_of` queries) | 🚧 v0.2 |
-| 🔁 | Consolidation proposals (ADD / UPDATE / SUPERSEDE / NOOP), never auto-delete | 🚧 v0.2 |
-| 🪞 | Reflection (daily/weekly with citations), "Dream" consolidation with git snapshot + rollback | 🚧 v0.2 |
-| ✍️ | Style card + decision principles from your own words; `answer_as_me` / `draft_as_me` (draft only) | 🚧 v0.2 |
-| 📏 | Fidelity eval harness ("does the twin answer like me?") | 🚧 v0.2 |
+| ⏳ | Temporal memory (`valid_from` / `valid_to` / `superseded_by`), `recall(as_of=…)`, layered `events/YYYY/` | 🧪 v0.2 (on `main`) |
+| 🔁 | Consolidation proposals (ADD / UPDATE / SUPERSEDE / NOOP), applied only on approval, never auto-delete | 🧪 v0.2 (on `main`) |
+| 🪞 | Reflection (daily/weekly with citations), "Dream" consolidation with git snapshot + rollback | 🧪 v0.2 (on `main`) |
+| ✍️ | Style card + decision principles from your own words; `answer_as_me` / `draft_as_me` (draft only) | 🧪 v0.2 (on `main`) |
+| 📏 | Fidelity eval harness ("does the twin answer like me?") | 🧪 v0.2 (on `main`) |
 | 🌐 | Share a scoped "ask my twin" link, A2A, mobile share sheet, browser extension | 🗓 planned |
 
 ## How it works
@@ -124,17 +125,42 @@ memrelay connect rollback <agent> # restore the agent's previous config
 memrelay doctor                   # paths and detected components
 ```
 
+**v0.2 twin commands (on `main`):**
+
+```bash
+memrelay consolidate              # plan ADD/UPDATE/SUPERSEDE/NOOP for inbox items
+memrelay reflect daily | weekly   # reflections with citations → inbox
+memrelay dream                    # git snapshot + merge proposals; `memrelay dream rollback <sha>`
+memrelay profile style            # style card from YOUR messages only → inbox
+memrelay profile principles       # principles with ≥2 evidence → inbox
+memrelay ask "我现在住哪？" --as-of 2023-06-01
+memrelay draft "reply to the team about the release" --channel work   # prints a draft; never sends
+memrelay eval init && memrelay eval run
+```
+
+Optional LLM for the persona layer (offline rules by default), any OpenAI-compatible endpoint:
+`persona_llm = "deepseek"` (or `openai`, `qwen`, `kimi`, `ollama`, `openai-compat`) in
+`config.toml`; the key is read from the matching env var such as `DEEPSEEK_API_KEY`.
+
 ## Security model
 
 - **Review queue.** Agents, capture and import can only *propose*. Proposals land in
   `inbox/`; nothing becomes a memory until you approve it.
 - **Whitelist gateway.** Agents see a fixed set of MCP tools: `get_profile`, `recall`,
-  `read_memory`, `recent` and `propose_memory`. They cannot edit, delete or move notes.
+  `read_memory`, `recent` and `propose_memory`, plus `answer_as_me` and `draft_as_me` on
+  `main`. They cannot edit, delete or move notes.
+- **Twin guardrails** (on `main`):
+  - Every twin answer carries an AI-twin disclosure, citations and a confidence value.
+  - Requests for secrets or memory dumps are refused.
+  - Uncited LLM output is dropped.
+  - Drafts only use memories at or below the channel's visibility (`work`, `friends`,
+    `public`).
+  - Calls are logged locally in `audit/`.
 - **Reads are filtered.** Inbox, rejected, archived, expired and `secret` notes are never
   returned.
 - **Sanitising.** Keys and tokens are redacted on the way in; text that looks like prompt
   injection is flagged for review.
-- **No send capability.** MemRelay has no email, chat or posting integration; the planned
+- **No send capability.** MemRelay has no email, chat or posting integration;
   `draft_as_me` returns text only.
 - **Local first.** The vault is files on your disk, and the web review UI binds to
   127.0.0.1 with a per-run token and CSRF check.

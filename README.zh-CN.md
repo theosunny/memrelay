@@ -9,6 +9,7 @@
 你跟 Claude Code 说过你用 pnpm，跟 Cursor 说过你的时区，跟 ChatGPT 讲过你的项目，可一换工具就全忘了。MemRelay 让它们共用**一份属于你的个人记忆**：存在你本机的普通 Markdown 文件里，每条记忆都有出处，**你批准之前什么都不会存进去**。
 
 > 状态：**v0.1.0**，面向开发者的预览版，尚未发布到 PyPI。欢迎反馈。
+> 🧪 = 已在 `main` 分支实现、将随 v0.2 发布，尚未正式发版。
 
 ## 功能
 
@@ -21,11 +22,11 @@
 | 🛡️ | **网关**：白名单 MCP 工具，智能体除 `propose_memory` 外只读；密钥打码、注入标记 | ✅ v0.1 |
 | 🧭 | **核心画像**：由已审核记忆生成，每条都链接到来源 | ✅ v0.1 |
 | 🇨🇳 | 国内友好：嵌入模型下载自动回退 hf-mirror.com；豆包 / Kimi / 千问 提供引导式配置 | ✅ v0.1 |
-| ⏳ | 时间维度记忆（`valid_from` / `valid_to` / `superseded_by`，按时间点查询） | 🚧 v0.2 |
-| 🔁 | 整理建议（新增 / 更新 / 取代 / 无需改动），从不自动删除 | 🚧 v0.2 |
-| 🪞 | 反思：带引用的日报 / 周报；“Dream”大整理前打 git 快照、可一键回滚 | 🚧 v0.2 |
-| ✍️ | 只基于你本人文字的风格卡和决策原则；`answer_as_me` / `draft_as_me`（只出草稿） | 🚧 v0.2 |
-| 📏 | 分身保真度评估（“分身答得像不像我”） | 🚧 v0.2 |
+| ⏳ | 时间维度记忆（`valid_from` / `valid_to` / `superseded_by`）、`recall(as_of=…)`、分层 `events/YYYY/` | 🧪 v0.2（已在 `main`） |
+| 🔁 | 整理建议（新增 / 更新 / 取代 / 无需改动），批准后才执行，从不自动删除 | 🧪 v0.2（已在 `main`） |
+| 🪞 | 反思：带引用的日报 / 周报；“Dream”大整理前打 git 快照、可一键回滚 | 🧪 v0.2（已在 `main`） |
+| ✍️ | 只基于你本人文字的风格卡和决策原则；`answer_as_me` / `draft_as_me`（只出草稿） | 🧪 v0.2（已在 `main`） |
+| 📏 | 分身保真度评估（“分身答得像不像我”） | 🧪 v0.2（已在 `main`） |
 | 🌐 | 限定范围的“问我的分身”分享、A2A、手机分享面板、浏览器扩展 | 🗓 计划中 |
 
 ## 工作原理
@@ -115,13 +116,34 @@ memrelay connect rollback <agent> # 恢复该智能体之前的配置
 memrelay doctor                   # 查看路径和已检测到的组件
 ```
 
+**v0.2 分身命令（已在 `main`）：**
+
+```bash
+memrelay consolidate              # 为收件箱条目生成 新增/更新/取代/无需改动 建议
+memrelay reflect daily | weekly   # 带引用的日报 / 周报 → 收件箱
+memrelay dream                    # git 快照 + 合并建议；回滚：memrelay dream rollback <sha>
+memrelay profile style            # 只用你本人的消息生成风格卡 → 收件箱
+memrelay profile principles       # 证据 ≥2 的决策原则 → 收件箱
+memrelay ask "我现在住哪？" --as-of 2023-06-01
+memrelay draft "回复同事：本周发版安排" --channel work   # 只输出草稿，绝不发送
+memrelay eval init && memrelay eval run
+```
+
+画像层可选接入 LLM（默认离线规则），支持任意 OpenAI 兼容接口：在 `config.toml` 写 `persona_llm = "deepseek"`（或 `openai`、`qwen`、`kimi`、`ollama`、`openai-compat`）；key 从对应环境变量读取，如 `DEEPSEEK_API_KEY`。
+
 ## 安全模型
 
 - **审核队列**：智能体、采集、导入都只能**提议**。提议进 `inbox/`，你批准之前不会成为记忆。
-- **白名单网关**：智能体只能看到固定几个 MCP 工具：`get_profile`、`recall`、`read_memory`、`recent`、`propose_memory`。它们不能编辑、删除或移动笔记。
+- **白名单网关**：智能体只能看到固定几个 MCP 工具：`get_profile`、`recall`、`read_memory`、`recent`、`propose_memory`；`main` 分支上另有 `answer_as_me`、`draft_as_me`。它们不能编辑、删除或移动笔记。
+- **分身护栏**（`main` 分支）：
+  - 分身的每个回答都带 AI 分身声明、引用和置信度。
+  - 索要密钥或要求导出全部记忆的请求会被拒绝。
+  - LLM 输出中没有引用的内容会被丢弃。
+  - 代拟草稿只使用不高于该渠道可见性的记忆（`work`、`friends`、`public`）。
+  - 每次调用都记在本机 `audit/` 日志里。
 - **读取过滤**：收件箱、已拒绝、已归档、已过期以及 `secret` 级别的笔记，永远不会返回给智能体。
 - **脱敏**：写入时会给密钥和令牌打码；疑似提示注入的内容会被标记，审核时提醒你。
-- **没有发送能力**：MemRelay 不接任何邮件、聊天或发帖接口；计划中的 `draft_as_me` 也只返回文字草稿。
+- **没有发送能力**：MemRelay 不接任何邮件、聊天或发帖接口；`draft_as_me` 只返回文字草稿。
 - **本地优先**：记忆库就是你磁盘上的文件；网页审核只监听 127.0.0.1，每次启动生成随机令牌，并做 CSRF 校验。
 - **配置改动可撤销**：写任何客户端配置之前都会先备份。
 

@@ -2,7 +2,35 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer (pre-1.0: minor = features).
 
-## [Unreleased]
+## [Unreleased] (0.2.0.dev0)
+
+### Added — v0.2 "twin"
+- Temporal memory: `recall(as_of=YYYY-MM-DD)` returns what was true then, including
+  superseded facts. Events are stored under `events/YYYY/` and reflections under
+  `reflections/<period>/`.
+- Consolidation (`memrelay consolidate`): ADD / UPDATE / SUPERSEDE / NOOP plans made by
+  rules or an LLM, applied only on approval. SUPERSEDE sets `valid_to` + `superseded_by`;
+  replaced versions are copied to `archive/`; nothing is deleted. `inbox approve --as-new`
+  ignores the plan.
+- Reflection: `reflect daily|weekly` writes reflections with validated citations (a
+  Generative-Agents style insight step for weekly). `dream` takes a git snapshot, proposes
+  merges and lists stale or long notes; `dream rollback <sha>` restores a snapshot as a new
+  commit.
+- Persona:
+  - `profile style` builds a style card from the user's own messages only (reproducible
+    statistics, redacted examples, optional LLM tone summary).
+  - `profile principles` keeps principles that have at least 2 pieces of evidence.
+- Twin MCP tools:
+  - `answer_as_me` returns citations, a confidence value and an AI-twin disclosure,
+    supports `as_of`, refuses requests for secrets or memory dumps, and applies a
+    visibility ceiling.
+  - `draft_as_me` returns a draft only, flags commitments and applies a channel
+    visibility. There is no send capability.
+  - Both are logged to a local audit file.
+- Pluggable persona LLM (`persona_llm`): OpenAI-compatible endpoints with presets for
+  openai, deepseek, qwen, kimi and ollama, plus `StubLLM` for tests.
+- Fidelity eval (`eval init|run`): fact, point-in-time, should-refuse and unknown
+  categories.
 
 ## [0.1.0] - 2026-10-18
 
