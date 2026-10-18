@@ -20,7 +20,8 @@ TYPE_FOLDER: dict[str, str] = {
 }
 REVIEW_FOLDERS = ("inbox", "rejected", "archive")
 # Never returned to agents by recall/read.
-HIDDEN_FOLDERS = frozenset(REVIEW_FOLDERS) | {".memrelay", ".git", ".obsidian"}
+# `sources/` holds raw archived transcripts (e.g. Basic Memory imports of chat exports).
+HIDDEN_FOLDERS = frozenset(REVIEW_FOLDERS) | {"sources", ".memrelay", ".git", ".obsidian"}
 
 README = """# MemRelay vault
 

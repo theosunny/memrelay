@@ -264,6 +264,71 @@ def capture_source(source_id: str) -> None:
     typer.echo(f"messages={r.messages} candidates={r.candidates} proposed={len(r.proposed)} duplicates={r.duplicates}")
 
 
+# ------------------------------------------------------------------ import
+import_app = typer.Typer(help="Import ChatGPT / Claude export packages / 导入导出包", no_args_is_help=True)
+app.add_typer(import_app, name="import")
+
+
+@import_app.command("scan")
+def import_scan(folder: list[str] = typer.Option(None, "--dir", help="Folder(s) to scan (default: Downloads)")) -> None:
+    from pathlib import Path
+
+    from .importers import scan
+
+    found = scan([Path(f).expanduser() for f in folder] if folder else None)
+    if not found:
+        typer.echo("No ChatGPT/Claude export found. / 没有发现导出包")
+    for c in found:
+        mark = " (already imported / 已导入)" if c.already_imported else ""
+        typer.echo(f"{c.kind:8} {c.size / 1e6:7.1f} MB  {c.mtime:%Y-%m-%d %H:%M}  {c.path}{mark}")
+
+
+@import_app.command("run")
+def import_run(
+    paths: list[str] = typer.Argument(None, help="Export zip / conversations.json; omit to scan Downloads"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Do not ask before importing"),
+    archive: bool = typer.Option(True, help="Also keep raw transcripts via Basic Memory importers"),
+    folder: list[str] = typer.Option(None, "--dir"),
+) -> None:
+    from pathlib import Path
+
+    from .backend import BasicMemoryBackend
+    from .extract.base import get_extractor
+    from .importers import archive_with_basic_memory, run_import, scan
+
+    cfg, vault, inbox = _ctx()
+    if paths:
+        targets = [Path(p).expanduser() for p in paths]
+    else:
+        targets = [c.path for c in scan([Path(f).expanduser() for f in folder] if folder else None)
+                   if not c.already_imported]
+    if not targets:
+        typer.echo("Nothing to import. / 没有可导入的内容")
+        return
+    archiver = None
+    if archive and BasicMemoryBackend.available(cfg):
+        bm = BasicMemoryBackend(cfg, vault)
+        bm.ensure_project()
+        env = bm.env()
+
+        def archiver(kind, raw):
+            archive_with_basic_memory(kind, raw, cfg.bm_command, env)
+    elif archive:
+        typer.echo("basic-memory not on PATH: skipping raw archive. / 未安装 basic-memory，跳过原文归档")
+    ex = get_extractor(cfg.extractor, cfg)
+    for p in targets:
+        if not yes and not typer.confirm(f"导入 / Import {p}?", default=False):
+            continue
+        try:
+            rep = run_import(p, ex, inbox, archive=archiver)
+        except (ValueError, OSError) as e:
+            typer.echo(f"skip: {e}")
+            continue
+        typer.echo(f"{rep.kind}: conversations={rep.conversations} messages={rep.messages} "
+                   f"proposed={len(rep.proposed)} duplicates={rep.duplicates} archived={rep.archived}"
+                   + (f" archive_error={rep.archive_error}" if rep.archive_error else ""))
+
+
 # ------------------------------------------------------------------ autostart
 autostart_app = typer.Typer(help="Run capture at login / 开机自启", no_args_is_help=True)
 app.add_typer(autostart_app, name="autostart")

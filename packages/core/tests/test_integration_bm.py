@@ -65,3 +65,26 @@ async def test_memrelay_serve_over_stdio_like_an_agent(home):
         assert r.data["status"] == "pending_review"
     assert spec.args == ["serve"]  # the installed console script, as packaged
     assert len(list((home / "vault" / "inbox").glob("*.md"))) == 1
+
+
+def test_export_archive_with_real_basic_memory(home, tmp_path):
+    import zipfile
+
+    from test_importers import CLAUDE
+
+    from memrelay.extract.stub import StubExtractor
+    from memrelay.importers import archive_with_basic_memory, run_import
+
+    cfg = Config(vault=home / "vault", backend="basic-memory", bm_project="memrelay-import-test")
+    vault = Vault(cfg.vault)
+    vault.init()
+    bm = BasicMemoryBackend(cfg, vault)
+    bm.ensure_project()
+    env = bm.env()
+    p = tmp_path / "claude.zip"
+    with zipfile.ZipFile(p, "w") as z:
+        z.writestr("conversations.json", json.dumps(CLAUDE, ensure_ascii=False))
+    rep = run_import(p, StubExtractor(), Inbox(vault),
+                     archive=lambda k, raw: archive_with_basic_memory(k, raw, cfg.bm_command, env))
+    assert rep.archived, rep.archive_error
+    assert list((vault.root / "sources" / "claude").rglob("*.md"))
