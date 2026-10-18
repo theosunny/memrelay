@@ -9,14 +9,14 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import re
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class MemoryType(str, Enum):
+class MemoryType(StrEnum):
     event = "event"
     fact = "fact"
     preference = "preference"
@@ -28,7 +28,7 @@ class MemoryType(str, Enum):
     profile = "profile"
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     proposed = "proposed"
     active = "active"
     superseded = "superseded"
@@ -36,14 +36,14 @@ class Status(str, Enum):
     archived = "archived"
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     public = "public"
     friends = "friends"
     work = "work"
     private = "private"
 
 
-class Sensitivity(str, Enum):
+class Sensitivity(StrEnum):
     normal = "normal"
     personal = "personal"
     secret = "secret"
@@ -98,7 +98,7 @@ class Note(BaseModel):
         return f"---\n{fm}\n---\n\n{body}\n"
 
     @classmethod
-    def from_markdown(cls, text: str) -> "Note":
+    def from_markdown(cls, text: str) -> Note:
         m = re.match(r"^---\r?\n(.*?)\r?\n---\r?\n?(.*)$", text, re.S)
         if not m:
             raise ValueError("missing YAML frontmatter")

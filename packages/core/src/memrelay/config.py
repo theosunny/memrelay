@@ -73,7 +73,7 @@ class Config:
 
     # --- persistence -------------------------------------------------------
     @classmethod
-    def load(cls) -> "Config":
+    def load(cls) -> Config:
         p = config_dir() / "config.toml"
         if not p.exists():
             return cls()

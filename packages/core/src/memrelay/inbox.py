@@ -84,7 +84,12 @@ class Inbox:
     def approve(self, item_id: str, *, edits: dict | None = None) -> Path:
         src = self._path(item_id)
         note = Note.from_markdown(src.read_text(encoding="utf-8"))
-        update = {"status": Status.active.value, "last_confirmed": dt.date.today()}
+        # A human approval is strong evidence: raise confidence to at least 0.8.
+        update = {
+            "status": Status.active.value,
+            "last_confirmed": dt.date.today(),
+            "confidence": max(note.confidence, 0.8),
+        }
         update.update(edits or {})
         note = Note(**{**note.model_dump(), **update, "body": update.get("body", note.body)})
         folder = self.vault.folder_for(note.type)
