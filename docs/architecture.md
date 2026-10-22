@@ -31,7 +31,8 @@ flowchart TB
 | `vault.py` | One folder per memory layer; hidden areas (`inbox/`, `rejected/`, `archive/`, `sources/`) never served |
 | `inbox.py` | Review queue. `propose` sanitises + dedups; `approve` moves into the right layer; `reject` keeps an audit copy |
 | `gateway.py` | The only MCP surface agents see (FastMCP). Whitelisted tools; read filters; writes only via `propose_memory` |
-| `backend.py` | `BasicMemoryBackend` (spawns `basic-memory mcp`, isolated `BASIC_MEMORY_CONFIG_DIR`) and `LocalBackend` (offline keyword search) |
+| `backends/` | Pluggable `MemoryBackend` (`search` / `get_note` / `remember`). `basic_memory` (default), `local`, `openviking` stub. No delete/forget on the interface. See [comparison.md](comparison.md). |
+| `backend.py` | Thin re-export of `backends` for older imports |
 | `adapters/` | One class per client: config path per OS (cited), backup, install/uninstall, rollback |
 | `wizard.py` | `connect --all`: discover → preview (dry-run) → confirm each |
 | `capture/` | Incremental, read-only transcript readers (`JsonlTranscriptSource` + per-tool parsers) with byte-offset cursors |
@@ -52,8 +53,10 @@ flowchart TB
 ## Design rules
 
 1. **Human in the loop for every write.** Nothing reaches the vault without `approve`.
-2. **Don't reinvent the wheel.** Storage/indexing = Basic Memory; MCP = FastMCP; file watching
-   = watchfiles; TOML = tomlkit. Borrowed ideas are credited (below).
+2. **Don't reinvent the wheel.** Storage/indexing = Basic Memory by default; OpenViking /
+   Supermemory are optional engines behind `backends/` — do not rebuild their retrieval
+   stacks here ([comparison.md](comparison.md)). MCP = FastMCP; file watching = watchfiles;
+   TOML = tomlkit. Borrowed ideas are credited (below).
 3. **Never guess paths.** Every client/capture path is cited in
    [client-config-paths.md](client-config-paths.md); undocumented apps get guided setup.
 4. **Plain files.** The vault is Markdown you can read, edit, grep, and sync with Git/Syncthing.

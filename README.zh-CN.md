@@ -55,7 +55,7 @@ flowchart LR
 - 存储和检索由 [Basic Memory](https://github.com/basicmachines-co/basic-memory) 完成，MemRelay 以独立程序方式通过 MCP stdio 调用它，从不 import、也不打包它。
 - MemRelay 补上它周边缺的部分：收件箱审核、策略网关、客户端接入、采集与导入，以及画像层。
 
-详见 [docs/architecture.md](docs/architecture.md)。
+详见 [docs/architecture.md](docs/architecture.md)。与 OpenViking、Supermemory、Basic Memory、Mem0 的定位对比见 [docs/comparison.md](docs/comparison.md)。
 
 ## 支持的客户端
 
@@ -151,7 +151,7 @@ memrelay eval init && memrelay eval run
 
 ## 常见问题
 
-**为什么不直接用 Mem0 / Letta / Zep / OpenMemory？** 它们是很好的记忆**引擎**，通常给你自己开发的应用用。MemRelay 面向的是同时用很多现成智能体的**个人**：把它们全接到同一份记忆上，每次写入都由人把关，记忆存成你能直接读、能自己同步的普通文件。合适的地方我们借鉴了它们的思路（Mem0 的更新操作、Graphiti 的时间失效、Letta 的核心/归档分层），出处见 [docs/architecture.md](docs/architecture.md)。
+**为什么不直接用 Mem0 / Letta / Zep / OpenViking / Supermemory？** 它们是很好的记忆**引擎**，通常给你自己开发的应用或云端空间用。MemRelay 面向的是同时用很多现成智能体的**个人**：接入、人审收件箱、分身（`answer_as_me` / `draft_as_me`）。我们把 MemRelay 定位为「中继 + 分身」，引擎做成可选后端——详见 [docs/comparison.md](docs/comparison.md)。
 
 **会抓取封闭应用（微信、豆包、Kimi……）的数据吗？** 不会。MemRelay 只读取各工具按公开文档写在你本机的文件，以及你自己下载的官方数据导出包。应用没有公开 MCP 配置路径的，我们只给操作步骤，不去猜路径。
 

@@ -60,7 +60,7 @@ flowchart LR
 - MemRelay adds what was missing around it: the review inbox, the policy gateway, client
   connectors, capture/import, and the persona layer.
 
-More: [docs/architecture.md](docs/architecture.md).
+More: [docs/architecture.md](docs/architecture.md). How MemRelay relates to OpenViking, Supermemory, Basic Memory and Mem0: [docs/comparison.md](docs/comparison.md).
 
 ## Supported clients
 
@@ -170,12 +170,11 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## FAQ
 
-**Why not just use Mem0 / Letta / Zep / OpenMemory?** They are excellent memory *engines*,
-usually for apps you build. MemRelay is for a *person* who uses many off-the-shelf agents.
-It wires them all to one store, keeps a human in the loop for every write, and stores
-memory as plain files you can read and sync. We borrow their ideas where they fit (Mem0's
-update operations, Graphiti's temporal invalidation, Letta's core vs archival memory) and
-credit them in [docs/architecture.md](docs/architecture.md).
+**Why not just use Mem0 / Letta / Zep / OpenViking / Supermemory?** They are excellent memory
+*engines*, usually for apps or cloud spaces you build on. MemRelay is for a *person* who
+uses many off-the-shelf agents: connectors, a review inbox, and a twin (`answer_as_me` /
+`draft_as_me`). We keep MemRelay as the relay+twin layer and treat engines as optional
+backends — details in [docs/comparison.md](docs/comparison.md).
 
 **Will you scrape closed apps (WeChat, 豆包, Kimi …)?** No. MemRelay only reads files that
 tools write to your own disk in documented locations, plus official data exports that you

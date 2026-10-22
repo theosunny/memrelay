@@ -4,6 +4,11 @@ All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); ve
 
 ## [Unreleased] (0.2.0.dev0)
 
+### Added
+- `docs/comparison.md`: MemRelay vs OpenViking vs Supermemory vs Basic Memory vs Mem0.
+- Pluggable `memrelay.backends` (`MemoryBackend`: search / get_note / remember). OpenViking
+  stub refuses forget/delete; config `backend = "openviking"` (+ `openviking_base_url`).
+
 ### Added — v0.2 "twin"
 - Temporal memory: `recall(as_of=YYYY-MM-DD)` returns what was true then, including
   superseded facts. Events are stored under `events/YYYY/` and reflections under
