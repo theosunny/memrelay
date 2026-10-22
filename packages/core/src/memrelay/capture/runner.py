@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..extract.base import Extractor
 from ..inbox import Inbox
+from ..review import propose_with_policy
 from .base import CaptureSource, CursorState
 
 
@@ -16,53 +17,63 @@ class CaptureReport:
     candidates: int = 0
     proposed: list[str] = field(default_factory=list)
     duplicates: int = 0
+    auto_approved: list[str] = field(default_factory=list)
+    needs_attention: list[str] = field(default_factory=list)
 
 
 def run_once(source: CaptureSource, extractor: Extractor, inbox: Inbox,
-             state: CursorState | None = None) -> CaptureReport:
+             state: CursorState | None = None, cfg=None) -> CaptureReport:
+    from ..config import Config
+
     state = state or CursorState(source.id)
     report = CaptureReport()
+    cfg = cfg or Config.load()
     msgs = list(source.iter_new_messages(state))
     report.messages = len(msgs)
     for cand in extractor.extract(msgs):
         report.candidates += 1
         note = cand.to_note(source_agent=source.id, source_channel="local-capture",
                             extractor=extractor.name)
-        r = inbox.propose(note)
-        if r.duplicate_of:
+        r = propose_with_policy(inbox, note, cfg)
+        if r.status == "duplicate":
             report.duplicates += 1
+        elif r.status == "auto_approved":
+            report.auto_approved.append(r.id)
+            report.proposed.append(r.id)
         else:
             report.proposed.append(r.id)
-    state.save()  # only after candidates are safely in the inbox
+            if r.status == "needs_attention":
+                report.needs_attention.append(r.id)
+    state.save()  # only after candidates are safely handled
     return report
 
 
 def watch(source, extractor: Extractor, inbox: Inbox, root: Path, on_report=None,
-          stop_event=None, debounce: int = 2000) -> None:
+          stop_event=None, debounce: int = 2000, cfg=None) -> None:
     """Re-run capture whenever transcript files change (watchfiles, cross-platform)."""
     from watchfiles import watch as _watch
 
     state = CursorState(source.id)
-    rep = run_once(source, extractor, inbox, state)
+    rep = run_once(source, extractor, inbox, state, cfg=cfg)
     if on_report:
         on_report(rep)
     root.mkdir(parents=True, exist_ok=True)
     root = root.resolve()
     for changes in _watch(root, stop_event=stop_event, debounce=debounce):
         if any(str(p).endswith(".jsonl") for _, p in changes):
-            rep = run_once(source, extractor, inbox, state)
+            rep = run_once(source, extractor, inbox, state, cfg=cfg)
             if on_report:
                 on_report(rep)
 
 
 def watch_all(sources, extractor: Extractor, inbox: Inbox, on_report=None, stop_event=None,
-              debounce: int = 2000) -> None:
+              debounce: int = 2000, cfg=None) -> None:
     """Capture from every source once, then on any change under any existing source root."""
     from watchfiles import watch as _watch
 
     states = {s.id: CursorState(s.id) for s in sources}
     for s in sources:
-        rep = run_once(s, extractor, inbox, states[s.id])
+        rep = run_once(s, extractor, inbox, states[s.id], cfg=cfg)
         if on_report:
             on_report(s.id, rep)
     roots = {s.id: s.root for s in sources if s.root.exists()}
@@ -78,6 +89,6 @@ def watch_all(sources, extractor: Extractor, inbox: Inbox, on_report=None, stop_
             if root is None:
                 continue
             if any(c == root or root in c.parents for c in changed):
-                rep = run_once(s, extractor, inbox, states[s.id])
+                rep = run_once(s, extractor, inbox, states[s.id], cfg=cfg)
                 if on_report:
                     on_report(s.id, rep)

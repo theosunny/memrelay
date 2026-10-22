@@ -63,9 +63,11 @@ async def test_memrelay_serve_over_stdio_like_an_agent(home):
         assert names == sorted(TOOL_WHITELIST)
         r = await c.call_tool("propose_memory", {"title": "t", "content": "我喜欢冷萃咖啡",
                                                  "type": "preference"})
-        assert r.data["status"] == "pending_review"
+        assert r.data["status"] == "auto_approved"
+        assert r.data.get("dest")
     assert spec.args == ["serve"]  # the installed console script, as packaged
-    assert len(list((home / "vault" / "inbox").glob("*.md"))) == 1
+    assert list((home / "vault" / "inbox").glob("*.md")) == []
+    assert list((home / "vault" / "preferences").glob("*.md"))
 
 
 def test_export_archive_with_real_basic_memory(home, tmp_path):

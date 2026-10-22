@@ -68,9 +68,48 @@ def doctor() -> None:
     typer.echo(f"memrelay {__version__}  python {sys.version.split()[0]}  platform {sys.platform}")
     typer.echo(f"config dir: {config_dir()}\ndata dir:   {data_dir()}\nvault:      {cfg.vault}")
     typer.echo(f"basic-memory on PATH: {BasicMemoryBackend.available(cfg)}  (backend={cfg.backend})")
+    typer.echo(f"review.mode: {cfg.review.mode}  (auto=default; strict=全部人工审核)")
     for aid, cls in ADAPTERS.items():
         a = cls()
         typer.echo(f"  {aid:15} detected={a.detect()!s:5} installed={a.installed() is not None!s:5} {a.config_path()}")
+
+
+@app.command()
+def status(days: int = typer.Option(7, help="Auto-applied window in days")) -> None:
+    """Review mode, inbox / needs_attention counts, recent auto-approvals. / 状态"""
+    from .review import iter_auto, normalized_mode, weekly_auto_digest
+
+    cfg, vault, inbox = _ctx()
+    items = inbox.list()
+    attention = [(i, n) for i, n in items if "needs_attention" in (n.flags or [])]
+    pending = [(i, n) for i, n in items if "needs_attention" not in (n.flags or [])]
+    auto = iter_auto()
+    import datetime as _dt
+    since = _dt.datetime.now().astimezone() - _dt.timedelta(days=days)
+    recent = []
+    for r in auto:
+        try:
+            ts = _dt.datetime.fromisoformat(r["ts"])
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=_dt.UTC)
+            if ts >= since:
+                recent.append(r)
+        except (KeyError, ValueError):
+            continue
+    mode = normalized_mode(cfg.review)
+    typer.echo(f"review.mode = {mode}   (switch: edit config [review] mode = \"strict\"|\"assist\"|\"auto\")")
+    typer.echo(f"inbox pending: {len(pending)}   needs_attention: {len(attention)}   "
+               f"auto-applied last {days}d: {len(recent)} (all-time {len(auto)})")
+    if attention:
+        typer.echo("needs_attention:")
+        for i, n in attention[:10]:
+            typer.echo(f"  {i}  [{n.type}] {n.title}  ({(n.model_extra or {}).get('hold_reason', '')})")
+    if recent:
+        typer.echo(f"auto-applied (last {days}d):")
+        for r in recent[-10:]:
+            typer.echo(f"  {r.get('ts', '')[:16]}  {r.get('title')} → {r.get('dest')}")
+    typer.echo("")
+    typer.echo(weekly_auto_digest(days).splitlines()[0])
 
 
 # ------------------------------------------------------------------ inbox
@@ -87,7 +126,9 @@ def inbox_list(as_json: bool = typer.Option(False, "--json")) -> None:
         return
     for i, n in items:
         flags = f" [{','.join(n.flags)}]" if n.flags else ""
-        typer.echo(f"{i}\n    [{n.type}] {n.title}  (from {n.source_agent}, conf {n.confidence}){flags}")
+        hold = (n.model_extra or {}).get("hold_reason")
+        hold_s = f"  hold={hold}" if hold else ""
+        typer.echo(f"{i}\n    [{n.type}] {n.title}  (from {n.source_agent}, conf {n.confidence}){flags}{hold_s}")
         plan = (n.model_extra or {}).get("consolidation")
         if plan and plan.get("op") != "ADD":
             typer.echo(f"    → {plan['op']} {plan.get('target', '')}  ({plan.get('reason', '')})")
@@ -173,8 +214,9 @@ def reflect_daily(date: str | None = typer.Option(None, help="YYYY-MM-DD (defaul
     if n is None:
         typer.echo("No memories for that day. / 当天没有记忆")
         return
-    r = inbox.propose(n)
-    typer.echo(f"proposed {r.id} ({n.extractor}); review with `memrelay inbox show {r.id}`")
+    from .review import propose_with_policy
+    r = propose_with_policy(inbox, n, cfg)
+    typer.echo(f"{r.status} {r.id}" + (f" → {r.dest}" if r.dest else "") + f" ({n.extractor})")
 
 
 @reflect_app.command("weekly")
@@ -183,12 +225,16 @@ def reflect_weekly(date: str | None = typer.Option(None, help="week end YYYY-MM-
     from .reflect import weekly
 
     cfg, vault, inbox = _ctx()
+    from .review import propose_with_policy, weekly_auto_digest
     n = weekly(vault, _date(date), llm=get_llm(cfg))
     if n is None:
         typer.echo("No memories for that week. / 本周没有记忆")
         return
-    r = inbox.propose(n)
-    typer.echo(f"proposed {r.id} ({n.extractor}); review with `memrelay inbox show {r.id}`")
+    # Append auto-applied digest so the user can skim what was written without review.
+    digest = weekly_auto_digest(7)
+    n = n.model_copy(update={"body": n.body.rstrip() + "\n\n## 自动写入 / Auto-applied\n\n" + digest})
+    r = propose_with_policy(inbox, n, cfg)
+    typer.echo(f"{r.status} {r.id}" + (f" → {r.dest}" if r.dest else "") + f" ({n.extractor})")
 
 
 @dream_app.callback()
@@ -234,8 +280,10 @@ def profile_style() -> None:
     if n is None:
         typer.echo("No user messages found in local capture sources. / 未找到你本人的消息")
         return
-    r = inbox.propose(n)
-    typer.echo(f"proposed {r.id} (profile/style-card.md, {n.evidence} messages)")
+    from .review import propose_with_policy
+    r = propose_with_policy(inbox, n, cfg)
+    typer.echo(f"{r.status} {r.id} (profile/style-card.md, {n.evidence} messages)"
+               + (f" reasons={r.reasons}" if r.reasons else ""))
 
 
 @profile_app.command("principles")
@@ -243,13 +291,15 @@ def profile_principles(min_evidence: int = typer.Option(2, min=1)) -> None:
     """Decision principles with ≥N evidence → inbox. / 生成决策原则"""
     from .persona import principles
 
-    _, vault, inbox = _ctx()
+    cfg, vault, inbox = _ctx()
     n = principles(vault, min_evidence=min_evidence)
     if n is None:
         typer.echo(f"No principle has ≥{min_evidence} evidence yet. / 还没有足够证据的原则")
         return
-    r = inbox.propose(n)
-    typer.echo(f"proposed {r.id} (profile/principles.md)")
+    from .review import propose_with_policy
+    r = propose_with_policy(inbox, n, cfg)
+    typer.echo(f"{r.status} {r.id} (profile/principles.md)"
+               + (f" reasons={r.reasons}" if r.reasons else ""))
 
 
 def _twin_run(coro_fn):
@@ -450,13 +500,14 @@ def capture_claude_code(
 
     def report(r) -> None:
         typer.echo(f"messages={r.messages} candidates={r.candidates} "
-                   f"proposed={len(r.proposed)} duplicates={r.duplicates}")
+                   f"proposed={len(r.proposed)} auto={len(getattr(r, 'auto_approved', []) or [])} "
+                   f"attention={len(getattr(r, 'needs_attention', []) or [])} duplicates={r.duplicates}")
 
     if watch:
         typer.echo(f"watching {src.root} (Ctrl+C to stop)")
         watch_fn(src, ex, inbox, src.root, on_report=report)
     else:
-        report(run_once(src, ex, inbox))
+        report(run_once(src, ex, inbox, cfg=cfg))
 
 
 @capture_app.command("all")
@@ -475,13 +526,14 @@ def capture_all(
 
     def report(sid, r) -> None:
         typer.echo(f"{sid:12} messages={r.messages} candidates={r.candidates} "
-                   f"proposed={len(r.proposed)} duplicates={r.duplicates}")
+                   f"proposed={len(r.proposed)} auto={len(getattr(r, 'auto_approved', []) or [])} "
+                   f"attention={len(getattr(r, 'needs_attention', []) or [])} duplicates={r.duplicates}")
 
     if watch:
         watch_all(sources, ex, inbox, on_report=report)
     else:
         for s in sources:
-            report(s.id, run_once(s, ex, inbox))
+            report(s.id, run_once(s, ex, inbox, cfg=cfg))
 
 
 @capture_app.command("source")
@@ -495,8 +547,10 @@ def capture_source(source_id: str) -> None:
     if source_id not in SOURCES:
         typer.echo(f"unknown source; known: {', '.join(SOURCES)}")
         raise typer.Exit(1)
-    r = run_once(SOURCES[source_id](), get_extractor(cfg.extractor, cfg), inbox)
-    typer.echo(f"messages={r.messages} candidates={r.candidates} proposed={len(r.proposed)} duplicates={r.duplicates}")
+    r = run_once(SOURCES[source_id](), get_extractor(cfg.extractor, cfg), inbox, cfg=cfg)
+    typer.echo(f"messages={r.messages} candidates={r.candidates} proposed={len(r.proposed)} "
+               f"auto={len(getattr(r, 'auto_approved', []) or [])} "
+               f"attention={len(getattr(r, 'needs_attention', []) or [])} duplicates={r.duplicates}")
 
 
 # ------------------------------------------------------------------ import

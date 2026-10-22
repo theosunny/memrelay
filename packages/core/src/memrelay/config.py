@@ -39,6 +39,22 @@ def default_vault() -> Path:
     return h / "vault" if h else Path.home() / "MemRelay"
 
 
+
+@dataclass
+class ReviewConfig:
+    """How proposals become memories. Default ``auto`` = automatic with safety rails."""
+
+    mode: str = "auto"  # auto | assist | strict
+    min_confidence: float = 0.55
+    trusted_capture_agents: list[str] = field(
+        default_factory=lambda: ["claude-code", "codex", "gemini-cli", "cursor"]
+    )
+    trusted_mcp_agents: list[str] = field(default_factory=lambda: ["*"])
+    auto_memrelay_generated: bool = True
+    auto_export_import: bool = True
+    export_min_confidence: float = 0.7
+    notify: bool = True
+
 @dataclass
 class LLMConfig:
     """OpenAI-compatible endpoint used by the optional LLM extractor."""
@@ -69,6 +85,7 @@ class Config:
     # Highest visibility answer_as_me may use for your own agents: public|friends|work|private
     twin_visibility: str = "private"
     llm: LLMConfig = field(default_factory=LLMConfig)
+    review: ReviewConfig = field(default_factory=ReviewConfig)
 
     @property
     def path(self) -> Path:
@@ -88,16 +105,20 @@ class Config:
         if not p.exists():
             return cls()
         raw = tomllib.loads(p.read_text(encoding="utf-8"))
-        llm = LLMConfig(**raw.pop("llm", {}))
+        llm = LLMConfig(**{k: v for k, v in raw.pop("llm", {}).items()
+                           if k in LLMConfig.__dataclass_fields__})
+        review = ReviewConfig(**{k: v for k, v in raw.pop("review", {}).items()
+                                 if k in ReviewConfig.__dataclass_fields__})
         if "vault" in raw:
             raw["vault"] = Path(raw["vault"]).expanduser()
-        known = {k: v for k, v in raw.items() if k in cls.__dataclass_fields__}
-        return cls(**known, llm=llm)
+        known = {k: v for k, v in raw.items() if k in cls.__dataclass_fields__ and k not in ("llm", "review")}
+        return cls(**known, llm=llm, review=review)
 
     def save(self) -> Path:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         d = asdict(self)
         llm = d.pop("llm")
+        review = d.pop("review")
         lines = []
         for k, v in d.items():
             if v is None:
@@ -105,6 +126,8 @@ class Config:
             lines.append(f"{k} = {_toml(v)}")
         lines.append("\n[llm]")
         lines += [f"{k} = {_toml(v)}" for k, v in llm.items()]
+        lines.append("\n[review]")
+        lines += [f"{k} = {_toml(v)}" for k, v in review.items()]
         self.path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return self.path
 

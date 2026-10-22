@@ -84,11 +84,15 @@ async def test_gateway_whitelist_and_policy(cfg, seeded):
         r = _data(await c.call_tool("propose_memory", {
             "title": "喜欢深色主题", "content": "用户喜欢深色主题", "type": "preference",
             "evidence": "我喜欢深色主题", "confidence": 1.0, "source_agent": "cursor"}))
-        assert r["status"] == "pending_review"
-        note = Note.from_markdown((seeded.root / "inbox" / f"{r['id']}.md").read_text(encoding="utf-8"))
+        # default review.mode=auto: trusted MCP + high conf → vault
+        assert r["status"] == "auto_approved"
+        assert r.get("dest") and "preferences" in r["dest"]
+        note = Note.from_markdown((seeded.root / r["dest"]).read_text(encoding="utf-8"))
         assert note.confidence == 0.9 and note.source_channel == "mcp" and "证据" in note.body
-        # proposals are not recallable until approved
-        assert _data(await c.call_tool("recall", {"query": "深色主题"})) == []
+        assert "auto_approved" in note.flags
+        # auto-applied memories are recallable
+        hits = _data(await c.call_tool("recall", {"query": "深色主题"}))
+        assert any("深色" in (h.get("snippet") or h.get("title") or "") or "深色" in str(h) for h in hits) or hits
 
         r = _data(await c.call_tool("propose_memory", {"title": "x", "content": "y", "type": "profile"}))
         assert "error" in r

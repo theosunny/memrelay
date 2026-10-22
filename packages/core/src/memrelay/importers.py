@@ -29,6 +29,7 @@ from .capture.base import Message
 from .config import data_dir
 from .extract.base import Extractor
 from .inbox import Inbox
+from .review import propose_with_policy
 
 KINDS = ("chatgpt", "claude")
 
@@ -195,7 +196,7 @@ def archive_with_basic_memory(kind: str, raw: bytes, bm_command: list[str], env:
             raise RuntimeError((r.stderr or r.stdout)[-2000:])
 
 
-def run_import(path: Path, extractor: Extractor, inbox: Inbox, archive=None) -> ImportReport:
+def run_import(path: Path, extractor: Extractor, inbox: Inbox, archive=None, cfg=None) -> ImportReport:
     """`archive`: optional callable(kind, raw_bytes) used to keep raw transcripts."""
     res = load(path)
     if not res:
@@ -204,10 +205,13 @@ def run_import(path: Path, extractor: Extractor, inbox: Inbox, archive=None) -> 
     rep = ImportReport(kind, conversations=len(data))
     msgs = list(iter_messages(kind, data, path.name))
     rep.messages = len(msgs)
+    from .config import Config
+
+    cfg = cfg or Config.load()
     for cand in extractor.extract(msgs):
         note = cand.to_note(source_agent=kind, source_channel="export-import", extractor=extractor.name)
-        r = inbox.propose(note)
-        if r.duplicate_of:
+        r = propose_with_policy(inbox, note, cfg)
+        if r.status == "duplicate":
             rep.duplicates += 1
         else:
             rep.proposed.append(r.id)

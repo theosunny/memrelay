@@ -81,20 +81,32 @@ class Inbox:
         return Note.from_markdown(self._path(item_id).read_text(encoding="utf-8"))
 
     # ------------------------------------------------------------------ review
-    def approve(self, item_id: str, *, edits: dict | None = None, as_new: bool = False) -> Path:
+    def approve(self, item_id: str, *, edits: dict | None = None, as_new: bool = False,
+                trusted: bool = False) -> Path:
         """Move an item into the vault. Honours a consolidation plan (UPDATE/SUPERSEDE/NOOP)
-        unless `as_new`; profile proposals (`profile_file`) replace that profile file."""
+        unless `as_new`; profile proposals (`profile_file`) replace that profile file.
+
+        ``trusted=True`` is the auto-approve path: keep the proposal confidence (do not bump
+        to 0.8) and record ``auto_approved`` in flags.
+        """
         from .consolidate import apply, archive_copy, unique_path
 
         src = self._path(item_id)
         note = Note.from_markdown(src.read_text(encoding="utf-8"))
         extra = dict(note.model_extra or {})
-        # A human approval is strong evidence: raise confidence to at least 0.8.
-        update = {
-            "status": Status.active.value,
-            "last_confirmed": dt.date.today(),
-            "confidence": max(note.confidence, 0.8),
-        }
+        if trusted:
+            update = {
+                "status": Status.active.value,
+                "last_confirmed": dt.date.today(),
+                "flags": sorted(set((note.flags or []) + ["auto_approved"])),
+            }
+        else:
+            # A human approval is strong evidence: raise confidence to at least 0.8.
+            update = {
+                "status": Status.active.value,
+                "last_confirmed": dt.date.today(),
+                "confidence": max(note.confidence, 0.8),
+            }
         update.update(edits or {})
         note = Note(**{**note.model_dump(), **update, "body": update.get("body", note.body)})
         if extra.get("profile_file"):
