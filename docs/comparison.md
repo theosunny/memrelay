@@ -1,6 +1,6 @@
 # MemRelay vs OpenViking vs Supermemory vs Basic Memory vs Mem0
 
-> **English summary.** MemRelay is a *relay + twin* for a person who already uses many off-the-shelf AI agents: one reviewed Markdown vault, connectors, capture/import, and `answer_as_me` / `draft_as_me`. OpenViking and Supermemory are *memory engines* (storage, extraction, retrieval). Basic Memory is the Markdown engine MemRelay already runs as a separate process. Mem0 is an in-app memory library for builders. **Recommendation:** keep MemRelay as the relay+twin layer; treat OpenViking / Supermemory / Basic Memory as optional backends behind a thin adapter — do not rebuild their retrieval stacks inside MemRelay. Sources cited below (checked 2026-10).
+> **English summary.** MemRelay is a *relay + twin* for a person who already uses many off-the-shelf AI agents: one reviewed Markdown vault, connectors, capture/import, and `answer_as_me` / `draft_as_me`. OpenViking and Supermemory are *memory engines* (storage, extraction, retrieval). Basic Memory is the Markdown engine MemRelay already runs as a separate process. Mem0 is an in-app memory library for builders. **Retrieval default:** keep **Basic Memory** (local Markdown + AGPL subprocess, matches MemRelay's file vault). Use **OpenViking** when you want stronger session/intent retrieval and accept a server; treat **Supermemory** as a parallel cloud MCP or a future optional backend — not a replacement for the review inbox. **Peers:** Mem0 OpenMemory MCP occupied a similar "shared MCP memory" niche but was **sunset in 2026**; few products combine auto-connect + human review + twin tools the way MemRelay does. Details in §6–§7. Sources cited below (checked 2026-10).
 
 中文正文如下。
 
@@ -107,3 +107,59 @@
 | 和 Mem0 什么关系？ | 借鉴抽取/更新操作语义（已在 consolidate / extract 注明出处），不当成连接器替代品。 |
 
 更新于 2026-10-18；链接以各项目当时公开文档为准。
+
+
+---
+
+## 6. 检索引擎建议（Basic Memory vs Supermemory vs 其他）
+
+**问题：** MemRelay 底层检索该绑谁？
+
+| 候选 | 适合 MemRelay 的理由 | 不适合当默认的理由 | 建议角色 |
+|---|---|---|---|
+| **Basic Memory（默认）** | 记忆已是本机 Markdown；BM 直接索引同一 vault；AGPL 只作子进程；导入器已在用；无账号、可离线 | 检索管线不如商业/大型引擎花哨（重排、意图分析） | **默认 `backend=basic-memory`** |
+| **OpenViking** | `search(mode="context")`、会话上下文、意图分析文档完整；可映射 `remember` | 需要部署/服务；MCP 带 **`forget`**，绝不能接到网关；与「文件即真相」模型有张力 | **可选后端**（适配器已占位，完整接入未做） |
+| **Supermemory** | 远程 MCP 开箱即用；语义检索成熟 | 云端 OAuth spaces；模型可 `forget_memory`；[2026-09 停掉 Nova / Company Brain](https://supermemory.ai/blog/an-update-to-supermemory/)，产品面在收缩到 API | 用户可**并行**挂 MCP；或日后做可选后端，**同样必须挡 forget** |
+| **Mem0（库 / 托管 MCP）** | 抽取与 ADD/UPDATE 语义可借鉴 | 面向应用开发者；托管记忆不在你磁盘；本地 OpenMemory MCP 已日落（见 §7） | 借鉴提示词与操作语义，不当默认存储 |
+| **自研向量栈** | — | 明确在造轮子（§3） | **不要做** |
+
+**结论（给选型用的三句话）：**
+
+1. **日常默认继续 Basic Memory**——和 MemRelay「明文 vault + 人审 + 本机优先」一致，迁移成本最低。  
+2. **要更强会话/意图检索时再接 OpenViking**，且只走 `remember` / `search(mode="context")`，永不暴露 `forget`。  
+3. **Supermemory 适合「再挂一个云端共享记忆」**，不适合替换收件箱；若当后端，策略与 OV 相同。
+
+配置：`backend = "basic-memory" | "local" | "openviking"`（见 `memrelay.backends`）。
+
+---
+
+## 7. 可用性与竞品格局（同类产品）
+
+### 7.1 MemRelay 好不好用（相对同场）
+
+| 维度 | MemRelay（v0.1 / main 上的 v0.2） | 典型 MCP 记忆服务（Mem0 托管、Supermemory MCP、已日落的 OpenMemory） |
+|---|---|---|
+| 装上就能接到多个 IDE | ✅ `connect --all` 写配置、备份、回滚；路径有出处 | 通常只给一个 MCP URL，**不**帮你改 Claude/Cursor/Codex 的本地文件 |
+| 本机历史 / 导出包进记忆 | ✅ capture + import | 少见；多为对话里 `add_memory` |
+| 人必须批准才入库 | ✅ 硬性 inbox | ❌ 模型常可直接 add/delete |
+| 分身（像我一样答 / 只拟草稿） | ✅ `answer_as_me` / `draft_as_me` | ❌ 需自建 |
+| 开箱体验 | 开发者预览：需 `uv` + 可选 BM；CLI 中英混排；未上 PyPI | 云端 MCP 往往「粘贴 URL 即用」，但数据主权与审核弱 |
+| 成熟度 | 预览期；CI 三系统；检索委托 BM | 商业引擎更成熟，产品边界常变（见 SM Nova 停运、OpenMemory 日落） |
+
+**诚实结论：** 若你只想「随便一个助手多记住一点事」，挂 Supermemory / Mem0 托管 MCP 更快。若你要**跨工具一份人审记忆 + 分身**，MemRelay 更贴；代价是安装与审核流程更重。
+
+### 7.2 相近定位的产品（交叉智能体个人记忆）
+
+同一窄缝——「多个现成智能体共用一份关于我的记忆」——近年主要选手：
+
+| 名称 | 重叠点 | 关键差距 | 状态 / 来源 |
+|---|---|---|---|
+| **Mem0 OpenMemory MCP** | 本机 MCP，多客户端共享记忆，有仪表盘 | 模型可删；无人审队列；无分身工具；无 connect 写各 IDE 配置 | **已日落**（Mem0 文档 sunsetting；独立 `mem0-mcp` 归档；2026-07 从 monorepo 移除）。背景：[Contextely 说明](https://www.contextely.com/blog/openmemory-mcp-explained)、[Mem0 openmemory 目录提示改用 self-hosted server](https://github.com/mem0ai/mem0/tree/main/openmemory) |
+| **Mem0 托管 MCP** | 跨 Claude/Cursor 等的共享记忆 | 云端；非 Markdown vault；无 MemRelay 式审核/分身 | https://mcp.mem0.ai/mcp/ （见 [Mem0 Claude Code 指南](https://mem0.ai/library/coding-agents/claude-code-memory)） |
+| **Supermemory MCP** | 跨助手共享记忆 | 云端；有 forget；Nova 个人知识 App 已停 | https://supermemory.ai/docs/supermemory-mcp/mcp ；停运说明 https://supermemory.ai/blog/an-update-to-supermemory/ |
+| **OpenViking** | 强记忆/检索/agent 集成 | 引擎+团队上下文库，不是「个人多 IDE 一键接入 + 人审分身」产品 | https://github.com/volcengine/OpenViking |
+| **Basic Memory** | 本机 Markdown + MCP | 不做多客户端 connect/capture/twin | https://github.com/basicmachines-co/basic-memory |
+| **MCP 官方 memory server** | 本地 JSONL 知识图 | 极简，无审核/接入生态 | `@modelcontextprotocol/server-memory`（见业界综述如 [Pathrule](https://www.pathrule.io/writing/memory-mcp-servers-for-ai-coding-agents)） |
+| **各厂商自带记忆**（如 Claude Code Auto Memory） | 单工具内记得住 | **不跨工具** | 例如 Claude Code `MEMORY.md`（业界对比文常提及） |
+
+**缺口仍在：** 「自动改各客户端配置 + 本地采集/导入 + 强制人审 + 分身答/拟 + 明文可同步文件」绑在一起的开源产品很少；最接近的 OpenMemory MCP 已退出维护，这反而强化了 MemRelay 坚持 **relay + twin、引擎可插拔** 的理由，而不是再做一个向量数据库。
