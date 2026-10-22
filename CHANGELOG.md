@@ -2,7 +2,11 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer (pre-1.0: minor = features).
 
-## [Unreleased] (0.2.0.dev0)
+## [Unreleased]
+
+### Changed
+- **Default review policy is `auto`** (automatic with safety rails). `review.mode = auto | assist | strict`; human-only review is `strict`. Trusted local capture + allowlisted MCP high-confidence proposals auto-apply; secrets/injection/low-conf/person/SUPERSEDE → `needs_attention`. See `docs/persona-design.md`. `memrelay status` + weekly auto digest.
+ (0.2.0.dev0)
 
 ### Added
 - `docs/comparison.md`: MemRelay vs OpenViking vs Supermemory vs Basic Memory vs Mem0.

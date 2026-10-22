@@ -6,7 +6,7 @@
 
 **让你所有的 AI 智能体共用一份记忆，并逐渐成为你的数字分身。**
 
-你跟 Claude Code 说过你用 pnpm，跟 Cursor 说过你的时区，跟 ChatGPT 讲过你的项目，可一换工具就全忘了。MemRelay 让它们共用**一份属于你的个人记忆**：存在你本机的普通 Markdown 文件里，每条记忆都有出处，**你批准之前什么都不会存进去**。
+你跟 Claude Code 说过你用 pnpm，跟 Cursor 说过你的时区，跟 ChatGPT 讲过你的项目，可一换工具就全忘了。MemRelay 让它们共用**一份属于你的个人记忆**：存在你本机的普通 Markdown 文件里，每条记忆都有出处。**默认全自动 + 安全护栏**：可信来源、高置信提议会直接写入记忆库；密钥/注入/低置信/取代他人记忆等进入 `needs_attention`。人工审核是可选升级（`strict`），不是默认负担。
 
 > 状态：**v0.1.0**，面向开发者的预览版，尚未发布到 PyPI。欢迎反馈。
 > 🧪 = 已在 `main` 分支实现、将随 v0.2 发布，尚未正式发版。
@@ -18,7 +18,7 @@
 | 🔌 | **接入**：通过 MCP 接入各智能体，自动写配置、先备份、一条命令回滚；`connect --all` 向导 | ✅ v0.1 |
 | 📥 | **采集**：增量读取本地智能体历史（Claude Code、Codex、Gemini CLI）；`--watch` + 开机自启 | ✅ v0.1 |
 | 📦 | **导入**：ChatGPT / Claude.ai 官方数据导出包（自动在“下载”里找，导入前询问） | ✅ v0.1 |
-| ✅ | **收件箱审核**：智能体、采集、导入的每次写入都先等你审核（命令行 + 本机网页） | ✅ v0.1 |
+| ✅ | **审核策略**（默认 `auto` / `assist` / `strict`）：可信且安全的写入自动入库；其余进隔离队列或收件箱（命令行 + 本机网页） | ✅ v0.1 |
 | 🛡️ | **网关**：白名单 MCP 工具，智能体除 `propose_memory` 外只读；密钥打码、注入标记 | ✅ v0.1 |
 | 🧭 | **核心画像**：由已审核记忆生成，每条都链接到来源 | ✅ v0.1 |
 | 🇨🇳 | 国内友好：嵌入模型下载自动回退 hf-mirror.com；豆包 / Kimi / 千问 提供引导式配置 | ✅ v0.1 |
@@ -45,8 +45,8 @@ flowchart LR
   GW -- "propose_memory" --> IN[(inbox/ 收件箱)]
   CAP[采集：本地会话日志] --> EX[抽取器<br/>规则或你的 LLM] --> IN
   IMP[导入：ChatGPT / Claude 导出包] --> EX
-  IN -- "你批准" --> V
-  IN -- "你拒绝" --> RJ[(rejected/)]
+  IN -- "自动入库（可信+安全）或你批准" --> V
+  IN -- "你拒绝 / needs_attention" --> RJ[(rejected/)]
   V --> PR[profile/core-profile.md]
   GW -. "独立进程检索" .-> BM[Basic Memory<br/>AGPL，不随本项目分发]
   BM -.-> V
@@ -105,7 +105,8 @@ memrelay connect --all
 ## 常用命令
 
 ```bash
-memrelay capture all              # 采集 Claude Code + Codex + Gemini CLI → 收件箱
+memrelay capture all              # 采集 Claude Code + Codex + Gemini CLI → 记忆库（auto）或收件箱
+memrelay status                   # review.mode、收件箱 / needs_attention、近期自动写入
 memrelay autostart install --dry-run   # 先查看 launchd / systemd / 任务计划 的配置
 memrelay import scan              # 在“下载”里找 ChatGPT / Claude 导出包
 memrelay import run               # 每个包导入前都会询问
@@ -133,7 +134,7 @@ memrelay eval init && memrelay eval run
 
 ## 安全模型
 
-- **审核队列**：智能体、采集、导入都只能**提议**。提议进 `inbox/`，你批准之前不会成为记忆。
+- **默认全自动 + 安全护栏（`review.mode = "auto"`）**：智能体、采集、导入仍只能**提议**；来自可信本地采集（claude-code、codex、gemini-cli、cursor）与白名单 MCP 智能体、且置信度足够的提议会自动写入记忆库。仍进 `needs_attention` / 收件箱的：密钥/PII 打码、注入标记、置信度 < 0.55、sensitivity 为 personal/secret、关于他人的笔记、会 SUPERSEDE 的矛盾、画像文件替换。在 `config.toml` 设 `review.mode = "strict"` 可恢复「全部人工审核」；`assist` 则仅对可信+高置信自动。永不自动发送；`draft_as_me` 只出草稿；不对智能体暴露 forget/delete。用 `memrelay status` 或周反思里的自动写入摘要浏览。产品设计见 [docs/persona-design.md](docs/persona-design.md)。
 - **白名单网关**：智能体只能看到固定几个 MCP 工具：`get_profile`、`recall`、`read_memory`、`recent`、`propose_memory`；`main` 分支上另有 `answer_as_me`、`draft_as_me`。它们不能编辑、删除或移动笔记。
 - **分身护栏**（`main` 分支）：
   - 分身的每个回答都带 AI 分身声明、引用和置信度。
@@ -151,7 +152,7 @@ memrelay eval init && memrelay eval run
 
 ## 常见问题
 
-**为什么不直接用 Mem0 / Letta / Zep / OpenViking / Supermemory？** 它们是很好的记忆**引擎**，通常给你自己开发的应用或云端空间用。MemRelay 面向的是同时用很多现成智能体的**个人**：接入、人审收件箱、分身（`answer_as_me` / `draft_as_me`）。我们把 MemRelay 定位为「中继 + 分身」，引擎做成可选后端——详见 [docs/comparison.md](docs/comparison.md)。
+**为什么不直接用 Mem0 / Letta / Zep / OpenViking / Supermemory？** 它们是很好的记忆**引擎**，通常给你自己开发的应用或云端空间用。MemRelay 面向的是同时用很多现成智能体的**个人**：接入、一份共享记忆（默认自动入库 + 护栏，人工审核可选）、分身（`answer_as_me` / `draft_as_me`）。我们把 MemRelay 定位为「中继 + 分身」，引擎做成可选后端——详见 [docs/comparison.md](docs/comparison.md)。
 
 **会抓取封闭应用（微信、豆包、Kimi……）的数据吗？** 不会。MemRelay 只读取各工具按公开文档写在你本机的文件，以及你自己下载的官方数据导出包。应用没有公开 MCP 配置路径的，我们只给操作步骤，不去猜路径。
 

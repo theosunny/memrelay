@@ -8,8 +8,10 @@
 
 You tell Claude Code you prefer pnpm, tell Cursor your time zone, tell ChatGPT about your
 project… and every agent forgets the moment you switch. MemRelay gives all of them **one
-personal memory you own**: plain Markdown on your disk, every memory with its source, and
-**nothing saved until you approve it**.
+personal memory you own**: plain Markdown on your disk, every memory with its source.
+By default MemRelay is **fully automatic with safety rails** — trusted high-confidence
+captures and allowlisted agents land in the vault; secrets, injections, low confidence,
+and supersedes wait in `needs_attention`. Human review is optional escalation (`strict`).
 
 > Status: **v0.1.0** — usable preview for developers. Not on PyPI yet. Feedback welcome.
 > 🧪 = implemented on `main` for the upcoming v0.2, not yet released.
@@ -21,7 +23,7 @@ personal memory you own**: plain Markdown on your disk, every memory with its so
 | 🔌 | **Connect** agents over MCP: writes each agent's config, backs it up, one-command rollback; `connect --all` wizard | ✅ v0.1 |
 | 📥 | **Capture** local agent history incrementally (Claude Code, Codex, Gemini CLI); `--watch` + autostart at login | ✅ v0.1 |
 | 📦 | **Import** ChatGPT / Claude.ai data exports (auto-found in Downloads, asks first) | ✅ v0.1 |
-| ✅ | **Review inbox**: every write from agents/capture waits for you (CLI + local web UI) | ✅ v0.1 |
+| ✅ | **Review policy** (`auto` default / `assist` / `strict`): trusted+safe writes auto-apply; quarantine + inbox for the rest (CLI + local web UI) | ✅ v0.1 |
 | 🛡️ | **Gateway**: whitelisted MCP tools, read-only for agents except `propose_memory`; secret redaction, injection flags | ✅ v0.1 |
 | 🧭 | **Core profile** generated from reviewed memories, with links to sources | ✅ v0.1 |
 | 🇨🇳 | China-friendly: HF mirror fallback for the embedding model; guided setup for 豆包 / Kimi / 千问 | ✅ v0.1 |
@@ -48,8 +50,8 @@ flowchart LR
   GW -- "propose_memory" --> IN[(inbox/)]
   CAP[capture: local transcripts] --> EX[extractor<br/>rules or your LLM] --> IN
   IMP[import: ChatGPT / Claude exports] --> EX
-  IN -- "you approve" --> V
-  IN -- "you reject" --> RJ[(rejected/)]
+  IN -- "auto (trusted+safe) or you approve" --> V
+  IN -- "you reject / needs_attention" --> RJ[(rejected/)]
   V --> PR[profile/core-profile.md]
   GW -. "search via separate process" .-> BM[Basic Memory<br/>AGPL, not bundled]
   BM -.-> V
@@ -114,7 +116,8 @@ you can also set `UV_INDEX_URL` to a PyPI mirror you trust.
 ## Common commands
 
 ```bash
-memrelay capture all              # Claude Code + Codex + Gemini CLI → inbox
+memrelay capture all              # Claude Code + Codex + Gemini CLI → vault (auto) or inbox
+memrelay status                   # review.mode, inbox / needs_attention, recent auto-applied
 memrelay autostart install --dry-run   # show the launchd / systemd / Task Scheduler entry first
 memrelay import scan              # find ChatGPT / Claude exports in Downloads
 memrelay import run               # asks before importing each package
@@ -144,8 +147,16 @@ Optional LLM for the persona layer (offline rules by default), any OpenAI-compat
 
 ## Security model
 
-- **Review queue.** Agents, capture and import can only *propose*. Proposals land in
-  `inbox/`; nothing becomes a memory until you approve it.
+- **Automatic with safety rails (default `review.mode = "auto"`).** Agents, capture and
+  import still only *propose*; high-confidence proposals from trusted local capture
+  (claude-code, codex, gemini-cli, cursor) and allowlisted MCP agents are auto-approved
+  into the vault. Quarantined into `needs_attention` / inbox: secrets/PII redaction,
+  injection flags, confidence < 0.55, sensitivity personal/secret, notes about other
+  people, SUPERSEDE contradictions, profile-file replaces. Set `review.mode = "strict"`
+  in `config.toml` for legacy all-human review, or `assist` for auto only on
+  trusted+high-conf. Never auto-sends; `draft_as_me` is draft-only; forget/delete are
+  never exposed to agents. Skim auto-writes with `memrelay status` or the weekly reflect digest.
+  Design notes: [docs/persona-design.md](docs/persona-design.md).
 - **Whitelist gateway.** Agents see a fixed set of MCP tools: `get_profile`, `recall`,
   `read_memory`, `recent` and `propose_memory`, plus `answer_as_me` and `draft_as_me` on
   `main`. They cannot edit, delete or move notes.
@@ -172,9 +183,10 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 **Why not just use Mem0 / Letta / Zep / OpenViking / Supermemory?** They are excellent memory
 *engines*, usually for apps or cloud spaces you build on. MemRelay is for a *person* who
-uses many off-the-shelf agents: connectors, a review inbox, and a twin (`answer_as_me` /
-`draft_as_me`). We keep MemRelay as the relay+twin layer and treat engines as optional
-backends — details in [docs/comparison.md](docs/comparison.md).
+uses many off-the-shelf agents: connectors, shared memory with automatic safety rails
+(optional human review), and a twin (`answer_as_me` / `draft_as_me`). We keep MemRelay as
+the relay+twin layer and treat engines as optional backends — details in
+[docs/comparison.md](docs/comparison.md).
 
 **Will you scrape closed apps (WeChat, 豆包, Kimi …)?** No. MemRelay only reads files that
 tools write to your own disk in documented locations, plus official data exports that you

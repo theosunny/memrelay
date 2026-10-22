@@ -30,6 +30,7 @@ flowchart TB
 | `schema.py` | `Note` model: Markdown + YAML frontmatter with provenance (`source_agent`, `source_ref`, `captured_at`), temporal fields (`valid_from`, `valid_to`, `superseded_by`), `visibility`, `sensitivity`, `confidence` with decay |
 | `vault.py` | One folder per memory layer; hidden areas (`inbox/`, `rejected/`, `archive/`, `sources/`) never served |
 | `inbox.py` | Review queue. `propose` sanitises + dedups; `approve` moves into the right layer; `reject` keeps an audit copy |
+| `review.py` | `review.mode` policy (`auto`/`assist`/`strict`): decide + auto-approve + `needs_attention` + auto-applied log/digest |
 | `gateway.py` | The only MCP surface agents see (FastMCP). Whitelisted tools; read filters; writes only via `propose_memory` |
 | `backends/` | Pluggable `MemoryBackend` (`search` / `get_note` / `remember`). `basic_memory` (default), `local`, `openviking` stub. No delete/forget on the interface. See [comparison.md](comparison.md). |
 | `backend.py` | Thin re-export of `backends` for older imports |

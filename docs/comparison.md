@@ -1,6 +1,6 @@
 # MemRelay vs OpenViking vs Supermemory vs Basic Memory vs Mem0
 
-> **English summary.** MemRelay is a *relay + twin* for a person who already uses many off-the-shelf AI agents: one reviewed Markdown vault, connectors, capture/import, and `answer_as_me` / `draft_as_me`. OpenViking and Supermemory are *memory engines* (storage, extraction, retrieval). Basic Memory is the Markdown engine MemRelay already runs as a separate process. Mem0 is an in-app memory library for builders. **Retrieval default:** keep **Basic Memory** (local Markdown + AGPL subprocess, matches MemRelay's file vault). Use **OpenViking** when you want stronger session/intent retrieval and accept a server; treat **Supermemory** as a parallel cloud MCP or a future optional backend — not a replacement for the review inbox. **Peers:** Mem0 OpenMemory MCP occupied a similar "shared MCP memory" niche but was **sunset in 2026**; few products combine auto-connect + human review + twin tools the way MemRelay does. Details in §6–§7. Sources cited below (checked 2026-10).
+> **English summary.** MemRelay is a *relay + twin* for a person who already uses many off-the-shelf AI agents: one shared Markdown vault (default **auto-apply with safety rails**; human review optional), connectors, capture/import, and `answer_as_me` / `draft_as_me`. OpenViking and Supermemory are *memory engines* (storage, extraction, retrieval). Basic Memory is the Markdown engine MemRelay already runs as a separate process. Mem0 is an in-app memory library for builders. **Retrieval default:** keep **Basic Memory** (local Markdown + AGPL subprocess, matches MemRelay's file vault). Use **OpenViking** when you want stronger session/intent retrieval and accept a server; treat **Supermemory** as a parallel cloud MCP or a future optional backend — not a replacement for MemRelay's review policy / twin layer. **Peers:** Mem0 OpenMemory MCP occupied a similar "shared MCP memory" niche but was **sunset in 2026**; few products combine auto-connect + shared memory with safety rails + twin tools the way MemRelay does. Details in §6–§7. Sources cited below (checked 2026-10).
 
 中文正文如下。
 
@@ -10,7 +10,7 @@
 
 | 项目 | 一句话定位 | 主要用户 | 记忆存在哪 | 写入谁说了算 |
 |---|---|---|---|---|
-| **MemRelay（忆桥）** | 把你用的多个现成智能体接到**一份你拥有的记忆**上，并逐渐成为你的数字分身 | 同时用 Claude Code / Cursor / Codex 等的人 | 本机 Markdown vault（可 Git/Syncthing） | **人审核**：一切先进 `inbox/` |
+| **MemRelay（忆桥）** | 把你用的多个现成智能体接到**一份你拥有的记忆**上，并逐渐成为你的数字分身 | 同时用 Claude Code / Cursor / Codex 等的人 | 本机 Markdown vault（可 Git/Syncthing） | **默认自动 + 护栏**（`review.mode=auto`）；敏感/低置信进 `needs_attention`；可切 `strict` 全人工 |
 | **[OpenViking](https://github.com/volcengine/OpenViking)** | 给智能体用的**上下文数据库**：知识、记忆、技能统一成可检索文件系统 | 做 agent / agent 团队的开发者与团队 | 服务端命名空间（`viking://…`）+ 会话分层 | 模型可直接调 `remember`；会话 commit 后后台抽取 |
 | **[Supermemory](https://supermemory.ai/)** | 给 MCP 兼容助手用的**共享记忆 API / MCP** | 需要跨助手共享上下文的个人与团队 | 云端 spaces | MCP 工具可 `add_memory` / `forget_memory` |
 | **[Basic Memory](https://github.com/basicmachines-co/basic-memory)** | 本机 Markdown 知识库 + MCP 检索 / 导入 | 想用文件当第二大脑的人 | 本机 Markdown 项目 | 工具可写笔记；MemRelay 把它当**独立进程**调用 |
@@ -36,7 +36,7 @@
 |---|---|---|---|---|---|
 | 多现成客户端一键接入（写 MCP 配置） | ✅ 核心 | 有若干 agent 集成，偏 OV 生态 | MCP URL 一次接入 | 自带 MCP，不帮你接 Cursor/Codex… | ❌ 库，不是连接器 |
 | 本地会话采集 / 官方导出导入 | ✅ | 会话 commit → 抽取 | 文档/上传为主 | ✅ 导入器（ChatGPT/Claude 等） | 应用侧喂对话 |
-| **人审收件箱** | ✅ 硬性 | 模型可直接 `remember` | 模型可直接 `add_memory` | 无强制审核层 | 无 |
+| **审核 / 自动入库** | ✅ 默认 auto + 护栏；`strict` 可全人工 | 模型可直接 `remember` | 模型可直接 `add_memory` | 无强制审核层 | 无 |
 | 禁止智能体删除记忆 | ✅ 网关无 delete；取代只标 `valid_to` | MCP 有 **`forget`** | MCP 有 **`forget_memory`** | 有写/删工具（取决于配置） | 有 DELETE 操作 |
 | 分身 `answer_as_me` / 只出草稿的 `draft_as_me` | ✅ | 需自己拼 | 需自己拼 | ❌ | ❌ |
 | 语义检索 / 重排 | 委托后端（默认 BM） | ✅ `find` / `search` + intent | ✅ `search_memory` | ✅ | ✅ |
@@ -141,12 +141,12 @@
 |---|---|---|
 | 装上就能接到多个 IDE | ✅ `connect --all` 写配置、备份、回滚；路径有出处 | 通常只给一个 MCP URL，**不**帮你改 Claude/Cursor/Codex 的本地文件 |
 | 本机历史 / 导出包进记忆 | ✅ capture + import | 少见；多为对话里 `add_memory` |
-| 人必须批准才入库 | ✅ 硬性 inbox | ❌ 模型常可直接 add/delete |
+| 写入可控（护栏 / 人工） | ✅ 默认 auto+护栏；可 `strict` | ❌ 模型常可直接 add/delete |
 | 分身（像我一样答 / 只拟草稿） | ✅ `answer_as_me` / `draft_as_me` | ❌ 需自建 |
 | 开箱体验 | 开发者预览：需 `uv` + 可选 BM；CLI 中英混排；未上 PyPI | 云端 MCP 往往「粘贴 URL 即用」，但数据主权与审核弱 |
 | 成熟度 | 预览期；CI 三系统；检索委托 BM | 商业引擎更成熟，产品边界常变（见 SM Nova 停运、OpenMemory 日落） |
 
-**诚实结论：** 若你只想「随便一个助手多记住一点事」，挂 Supermemory / Mem0 托管 MCP 更快。若你要**跨工具一份人审记忆 + 分身**，MemRelay 更贴；代价是安装与审核流程更重。
+**诚实结论：** 若你只想「随便一个助手多记住一点事」，挂 Supermemory / Mem0 托管 MCP 更快。若你要**跨工具一份共享记忆（默认可自动入库）+ 分身**，MemRelay 更贴；安装仍有门槛，但默认不再要求每条都人工点批准（可用 `strict` 恢复）。
 
 ### 7.2 相近定位的产品（交叉智能体个人记忆）
 
