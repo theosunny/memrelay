@@ -22,7 +22,7 @@ from starlette.routing import Route
 from . import __version__
 from .config import Config, data_dir
 from .faces import ensure_default_faces
-from .review import iter_auto, weekly_auto_digest
+from .review import iter_auto
 from .schema import Note
 from .vault import Vault
 
@@ -87,15 +87,15 @@ def _snippet(body: str) -> str:
     return text if len(text) <= 160 else text[:157] + "…"
 
 
-def _shell_digest(days: int) -> str:
-    # 动态 is a home screen: drop lines that name the CLI or config file.
-    kept = []
-    for line in weekly_auto_digest(days).splitlines():
-        low = line.lower()
-        if "memrelay inbox" in low or "review.mode" in low or ".toml" in low:
-            continue
-        kept.append(line)
-    return "\n".join(kept).strip() + "\n"
+def _shell_digest(days: int, items: list[dict]) -> str:
+    # 动态 is a home screen: titles and times only, never the CLI or a channel name.
+    if not items:
+        return f"过去 {days} 天没有自动写入的记忆。\n"
+    lines = [f"过去 {days} 天自动写入 {len(items)} 条记忆。"]
+    for row in items[-50:]:
+        when = str(row.get("ts") or "")[:16].replace("T", " ")
+        lines.append(f"- {when}  {row.get('title') or '未命名'}")
+    return "\n".join(lines) + "\n"
 
 
 async def _backend(app: Starlette, cfg: Config):
@@ -173,7 +173,8 @@ def build_shell_app(cfg: Config, token: str) -> Starlette:
             days = 7
         days = max(1, min(days, 90))
         since = dt.datetime.now().astimezone() - dt.timedelta(days=days)
-        return JSONResponse({"digest": _shell_digest(days), "items": iter_auto(since)})
+        items = iter_auto(since)
+        return JSONResponse({"digest": _shell_digest(days, items), "items": items})
 
     async def twin_ask(request: Request) -> Response:
         try:
