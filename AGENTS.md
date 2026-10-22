@@ -1,6 +1,6 @@
 # MemRelay agent notes
 
-MemRelay (忆桥) is an Apache-2.0 personal memory engine. The published package is `packages/core` (`memrelay`). The vault is Markdown under `~/MemRelay` (override with `MEMRELAY_HOME` in tests). Agents reach it through the MCP gateway (`memrelay serve`); they cannot delete, forget, or send. Basic Memory is an optional AGPL search process and must not be vendored. Tests: `uv run pytest` and `uv run ruff check .` from the repo root. The desktop shell is `packages/desktop` (Phase 1: tray + 分身 / 记忆 / 动态). It talks only to `memrelay shell-api` on `127.0.0.1`. Do not start Phase 2 (sync / mobile) unless asked.
+MemRelay (忆桥) is an Apache-2.0 personal memory engine. The published package is `packages/core` (`memrelay`). The vault is Markdown under `~/MemRelay` (override with `MEMRELAY_HOME` in tests). Agents reach it through the MCP gateway (`memrelay serve`); they cannot delete, forget, or send. Basic Memory is an optional AGPL search process and must not be vendored. Tests: `uv run pytest` and `uv run ruff check .` from the repo root. The desktop shell is `packages/desktop` (tray + 分身 / 记忆 / 动态) and talks only to `memrelay shell-api` on `127.0.0.1`. Sync ciphertext lives in `packages/sync` (`memrelay-sync`); vault keys stay in the data dir. Mobile is `packages/mobile` (分身 + 记忆 only).
 
 # Ponytail, lazy senior dev mode
 
