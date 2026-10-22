@@ -57,7 +57,10 @@ class Config:
     # Isolated Basic Memory state so we never touch a user's existing BM setup.
     # Set to "" to share the user's default Basic Memory config instead.
     bm_config_dir: str | None = None
-    backend: str = "basic-memory"  # "basic-memory" | "local"
+    # Storage engine: basic-memory (default) | local | openviking (stub; see backends/openviking.py)
+    # Aliases: basic_memory, bm, ov. OpenViking never exposes forget through the gateway.
+    backend: str = "basic-memory"
+    openviking_base_url: str = ""  # e.g. https://host — unused until OV client is wired
     extractor: str = "stub"  # "stub" | "openai"
     hf_endpoint: str = "auto"  # "auto" | "off" | URL (see memrelay/hf.py)
     # Persona layer LLM: "off" (rule-based, offline) | "openai-compat" (uses [llm]) |
