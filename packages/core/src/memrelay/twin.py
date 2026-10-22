@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .backend import _tokens
 from .config import data_dir
+from .faces import get_face
 from .schema import Note, effective_confidence
 from .temporal import visible
 from .vault import Vault
@@ -143,17 +144,31 @@ def _llm_cited(llm, system: str, user: str, n_hits: int) -> tuple[str, set[int]]
 
 
 async def answer_as_me(question: str, *, vault: Vault, backend, llm=None, as_of: dt.date | None = None,
-                       ceiling: str = "private", k: int = 6, today: dt.date | None = None) -> dict:
+                       ceiling: str = "private", k: int = 6, today: dt.date | None = None,
+                       face_id: str | None = None) -> dict:
     today = today or dt.date.today()
-    base = {"disclosure": DISCLOSURE, "as_of": as_of.isoformat() if as_of else None}
+    base = {"disclosure": DISCLOSURE, "as_of": as_of.isoformat() if as_of else None, "face_id": face_id}
+    face_extra = {"face_id": face_id} if face_id else None
+    if face_id:
+        try:
+            face = get_face(vault, face_id)
+        except KeyError:
+            audit("answer_as_me", question, [], True, face_extra)
+            return {**base, "answer": "没有这个面。 / Unknown face.", "citations": [],
+                    "confidence": 0.0, "refused": True, "mode": "policy"}
+        if "answer" not in face.capabilities:
+            audit("answer_as_me", question, [], True, face_extra)
+            return {**base, "answer": "这个面不能回答。 / This face cannot answer.",
+                    "citations": [], "confidence": 0.0, "refused": True, "mode": "policy"}
+        ceiling = face.visibility_ceiling
     if REFUSE.search(question):
-        audit("answer_as_me", question, [], True)
+        audit("answer_as_me", question, [], True, face_extra)
         return {**base, "answer": "这个问题我不能回答。 / I can't answer that.", "citations": [],
                 "confidence": 0.0, "refused": True, "reason": "secret, dump or instruction-override request",
                 "mode": "policy"}
     hits = await retrieve(vault, backend, question, as_of=as_of, ceiling=ceiling, k=k, today=today)
     if not hits:
-        audit("answer_as_me", question, [], False)
+        audit("answer_as_me", question, [], False, face_extra)
         return {**base, "answer": "我不知道——我的记忆里没有相关内容。 / I don't know; nothing in my memories covers this.",
                 "citations": [], "confidence": 0.0, "refused": False, "mode": "rules"}
     when = f"（截至 {as_of.isoformat()} / as of {as_of.isoformat()}）" if as_of else ""
@@ -165,7 +180,7 @@ async def answer_as_me(question: str, *, vault: Vault, backend, llm=None, as_of:
         res = _llm_cited(llm, ANSWER_PROMPT, f"QUESTION: {question}\n\nMEMORIES:\n{listing}"
                          + (f"\n\nPROFILE:\n{prof}" if prof else ""), len(hits))
         if res is not None and res[0] == "":
-            audit("answer_as_me", question, [r for r, _ in hits], False, {"unknown": True})
+            audit("answer_as_me", question, [r for r, _ in hits], False, {**(face_extra or {}), "unknown": True})
             return {**base, "answer": "我不知道——记忆不足以回答。 / I don't know; my memories don't answer this.",
                     "citations": [], "confidence": 0.0, "refused": False, "mode": getattr(llm, "name", "llm")}
         if res is not None:
@@ -175,7 +190,7 @@ async def answer_as_me(question: str, *, vault: Vault, backend, llm=None, as_of:
         answer = "根据我的记忆 / From my memories: " + "；".join(f"{_core(n)} [{i + 1}]" for i, (_, n) in enumerate(top))
         used = set(range(1, len(top) + 1))
     cited_hits = [h for i, h in enumerate(hits) if i + 1 in used]
-    audit("answer_as_me", question, [r for r, _ in cited_hits], False)
+    audit("answer_as_me", question, [r for r, _ in cited_hits], False, face_extra)
     return {**base, "answer": answer + when, "citations": _citations(hits, used),
             "confidence": _confidence(question, cited_hits, today), "refused": False, "mode": mode}
 
