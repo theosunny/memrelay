@@ -6,6 +6,8 @@ import {
   getMemory,
   listMemories,
   loadShellConfig,
+  pairSync,
+  runSync,
   type Activity,
   type Answer,
   type Face,
@@ -31,6 +33,10 @@ export default function App() {
   const [detail, setDetail] = useState<MemoryDetail | null>(null);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [error, setError] = useState("");
+  const [syncServer, setSyncServer] = useState("http://127.0.0.1:8790");
+  const [pairCode, setPairCode] = useState("");
+  const [pairing, setPairing] = useState("");
+  const [syncMsg, setSyncMsg] = useState("");
 
   async function refresh(which: Tab = tab) {
     setError("");
@@ -190,6 +196,12 @@ export default function App() {
         <section aria-labelledby="activity-title">
           <h2 id="activity-title" className="meta">动态</h2>
           <article className="card"><pre>{activity?.digest || "过去几天没有自动写入的记忆。"}</pre></article>
+          {activity?.conflicts?.length ? (
+            <article className="card">
+              <h3>需要你看一眼</h3>
+              <ul>{activity.conflicts.map((c) => <li key={c}>{c}</li>)}</ul>
+            </article>
+          ) : null}
         </section>
       )}
 
@@ -199,7 +211,7 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Escape") { setSettings(false); return; }
               if (e.key !== "Tab") return;
-              const items = [...e.currentTarget.querySelectorAll<HTMLElement>("input, button")].filter((el) => !el.hasAttribute("disabled"));
+              const items = [...e.currentTarget.querySelectorAll<HTMLElement>("input, textarea, button")].filter((el) => !el.hasAttribute("disabled"));
               const first = items[0];
               const last = items[items.length - 1];
               if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
@@ -211,6 +223,22 @@ export default function App() {
             <input id="base" type="text" value={base} onChange={(e) => setBase(e.target.value)} autoComplete="off" autoFocus />
             <label htmlFor="token">令牌</label>
             <input id="token" type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
+            <h3>同步：配对码</h3>
+            <label htmlFor="sync-server">同步服务</label>
+            <input id="sync-server" type="text" value={syncServer} onChange={(e) => setSyncServer(e.target.value)} autoComplete="off" />
+            <div className="actions">
+              <button type="button" className="gear" onClick={() => void pairSync(syncServer).then((r) => {
+                setPairCode(r.pair_code);
+                setPairing(r.pairing);
+                setSyncMsg("");
+              }).catch(() => setSyncMsg("同步服务没有连上"))}>生成配对码</button>
+              <button type="button" className="gear" onClick={() => void runSync().then((r) => {
+                setSyncMsg(`已同步。冲突 ${r.pull.conflicts.length} 条`);
+              }).catch(() => setSyncMsg("同步服务没有连上"))}>同步一次</button>
+            </div>
+            {pairCode ? <p>配对码 {pairCode}</p> : null}
+            {pairing ? <textarea readOnly value={pairing} aria-label="配对内容" /> : null}
+            {syncMsg ? <p className="meta">{syncMsg}</p> : null}
             <div className="actions">
               <button type="button" className="gear" onClick={() => setSettings(false)}>关闭</button>
               <button type="submit" className="primary">保存</button>

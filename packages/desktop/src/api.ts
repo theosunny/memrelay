@@ -20,7 +20,11 @@ export type MemoryDetail = MemoryItem & {
   source_agent?: string;
 };
 
-export type Activity = { digest: string; items: { ts?: string; title?: string; dest?: string }[] };
+export type Activity = {
+  digest: string;
+  items: { ts?: string; title?: string; dest?: string }[];
+  conflicts?: string[];
+};
 
 const base = () => localStorage.getItem("shellBase") || "http://127.0.0.1:8787";
 const token = () => localStorage.getItem("shellToken") || "";
@@ -41,6 +45,16 @@ export const listMemories = (q = "") =>
   api<{ items: MemoryItem[] }>(`/v1/memories?q=${encodeURIComponent(q)}`);
 export const getMemory = (id: string) => api<MemoryDetail>(`/v1/memories/${id.split("/").map(encodeURIComponent).join("/")}`);
 export const getActivity = () => api<Activity>("/v1/activity");
+export const pairSync = (server: string) =>
+  api<{ pair_code: string; pairing: string }>("/v1/sync/pair", {
+    method: "POST",
+    body: JSON.stringify({ server }),
+  });
+export const runSync = () =>
+  api<{ push: { pushed: number }; pull: { pulled: number; conflicts: string[] } }>("/v1/sync/run", {
+    method: "POST",
+    body: "{}",
+  });
 
 // shortcut: no JS test runner in this package, add a client test when one already exists
 export async function loadShellConfig(): Promise<{ ready: boolean; detail: string }> {

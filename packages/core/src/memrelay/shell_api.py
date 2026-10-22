@@ -174,7 +174,13 @@ def build_shell_app(cfg: Config, token: str) -> Starlette:
         days = max(1, min(days, 90))
         since = dt.datetime.now().astimezone() - dt.timedelta(days=days)
         items = iter_auto(since)
-        return JSONResponse({"digest": _shell_digest(days, items), "items": items})
+        from .sync_client import conflict_paths
+
+        return JSONResponse({
+            "digest": _shell_digest(days, items),
+            "items": items,
+            "conflicts": conflict_paths(vault),
+        })
 
     async def twin_ask(request: Request) -> Response:
         try:
@@ -199,6 +205,32 @@ def build_shell_app(cfg: Config, token: str) -> Starlette:
         )
         return JSONResponse(result)
 
+    async def sync_status(_request: Request) -> Response:
+        from .sync_client import public_status
+
+        return JSONResponse(public_status())
+
+    async def sync_pair(request: Request) -> Response:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        server = str((body or {}).get("server") or "http://127.0.0.1:8790") if isinstance(body, dict) else "http://127.0.0.1:8790"
+        from .sync_client import pair_desktop
+
+        try:
+            return JSONResponse(pair_desktop(vault, server))
+        except Exception:
+            return JSONResponse({"error": "sync_unavailable"}, status_code=502)
+
+    async def sync_run(_request: Request) -> Response:
+        from .sync_client import pull, push
+
+        try:
+            return JSONResponse({"push": push(vault), "pull": pull(vault)})
+        except Exception:
+            return JSONResponse({"error": "sync_unavailable"}, status_code=502)
+
     @asynccontextmanager
     async def lifespan(app: Starlette):
         yield
@@ -217,6 +249,9 @@ def build_shell_app(cfg: Config, token: str) -> Starlette:
             Route("/v1/memories", memories, methods=["GET"]),
             Route("/v1/memories/{note_id:path}", memory, methods=["GET"]),
             Route("/v1/activity", activity, methods=["GET"]),
+            Route("/v1/sync", sync_status, methods=["GET"]),
+            Route("/v1/sync/pair", sync_pair, methods=["POST"]),
+            Route("/v1/sync/run", sync_run, methods=["POST"]),
         ],
         middleware=[Middleware(_Guard, token=token)],
         lifespan=lifespan,
@@ -229,5 +264,8 @@ def serve_shell_api(port: int = 8787, token_file: Path | None = None) -> None:
     cfg = Config.load()
     path, token = load_or_create_token(token_file)
     print(f"shell-api token: {path}", flush=True)
+    from .sync_client import start_relay_thread
+
+    start_relay_thread(Vault(cfg.vault))
     # Bind address is the security boundary; do not accept a host flag.
     uvicorn.run(build_shell_app(cfg, token), host="127.0.0.1", port=port, log_level="warning")

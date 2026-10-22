@@ -70,8 +70,11 @@ def test_memories_skip_hidden_and_activity_has_no_cli(tmp_path, monkeypatch):
         "source_channel": "mcp",
         "confidence": 0.8,
     }, ensure_ascii=False) + "\n", encoding="utf-8")
+    (tmp_path / "vault" / ".memrelay" / "conflicts").mkdir(parents=True)
+    (tmp_path / "vault" / ".memrelay" / "conflicts" / "tea.md").write_text("other", encoding="utf-8")
     act = c.get("/v1/activity", headers=H).json()
     assert "常住上海" in act["digest"] and act["items"]
+    assert any(x.endswith("tea.md") for x in act["conflicts"])
     low = act["digest"].lower()
     assert "memrelay" not in low and "mcp" not in low and "review.mode" not in low
 

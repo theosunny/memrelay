@@ -1,7 +1,7 @@
 # 忆桥分身桌面壳 / MemRelay desktop shell
 
-**Status:** Phase 1 scaffold. Tray app with three home screens: 分身 / 记忆 / 动态.
-The window talks only to the local shell API. Phase 2 (sync, mobile) is not in this package.
+**Status:** Tray app with three home screens: 分身 / 记忆 / 动态.
+The window talks only to the local shell API. 设置 also pairs a phone and runs one sync against `memrelay-sync` (default `http://127.0.0.1:8790`). The phone app is `packages/mobile`.
 
 ## What you need
 
@@ -72,3 +72,4 @@ Open `http://127.0.0.1:1420`. The content security policy inside the tray app al
 - `memrelay` is not bundled; it must be on `PATH`.
 - Memory browse has search and a single note, not a timeline or type filter.
 - JS client has no test runner yet.
+- Sync settings need a running `memrelay-sync`. The pairing text includes the vault key; it is shown only in 设置. The phone pastes it. There is no QR image.
