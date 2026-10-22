@@ -1,6 +1,6 @@
 # Twin Shell Phase 1: Faces + Local Shell API + Desktop App
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ship a human desktop shell (tray + 分身 / 记忆 / 动态) over a face-aware MemRelay engine and a 127.0.0.1 shell HTTP API, without teaching users MCP or config.toml.
 
@@ -56,7 +56,7 @@
   - `get_face(vault: Vault, face_id: str) -> Face`
   - `save_face(vault: Vault, face: Face) -> Path`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # packages/core/tests/test_faces.py
@@ -93,12 +93,12 @@ def test_save_and_reload_face(tmp_path):
     assert loaded.visibility_ceiling == "work"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd /workspace/memrelay && uv run pytest packages/core/tests/test_faces.py -v`  
 Expected: FAIL with `ModuleNotFoundError: No module named 'memrelay.faces'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 # packages/core/src/memrelay/faces.py
@@ -203,12 +203,12 @@ def _load(path: Path) -> Face:
 
 Note: `tomlkit` is already a core dependency.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd /workspace/memrelay && uv run pytest packages/core/tests/test_faces.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/core/src/memrelay/faces.py packages/core/tests/test_faces.py
@@ -228,7 +228,7 @@ git commit -s -m "feat(faces): N faces on one vault with default self"
 - Consumes: `get_face(vault, face_id)`, existing `answer_as_me(..., ceiling=...)`
 - Produces: `answer_as_me(..., face_id: str | None = None)` uses face ceiling when `face_id` set; response includes `"face_id"`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # append to packages/core/tests/test_twin.py
@@ -262,12 +262,12 @@ async def test_answer_uses_face_ceiling(vault, backend_local):
 
 Adapt fixture names to match `test_twin.py` (`vault`, backend). If existing tests use a different harness, mirror that harness exactly.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest packages/core/tests/test_twin.py::test_answer_uses_face_ceiling -v`  
 Expected: FAIL (`face_id` unexpected kwarg)
 
-- [ ] **Step 3: Minimal implementation**
+- [x] **Step 3: Minimal implementation**
 
 In `answer_as_me`, add `face_id: str | None = None`. When set:
 
@@ -288,12 +288,12 @@ if face_id:
 
 In `gateway.py` `answer_as_me` tool, add optional `face: str | None = None` and pass `face_id=face`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest packages/core/tests/test_twin.py packages/core/tests/test_faces.py -q`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/core/src/memrelay/twin.py packages/core/src/memrelay/gateway.py packages/core/tests/test_twin.py
@@ -324,7 +324,7 @@ Routes (all JSON, `Authorization: Bearer <token>`):
 | GET | `/v1/memories/{id}` | id = vault-relative path url-encoded | full note JSON |
 | GET | `/v1/activity` | `days?=7` | `{digest: str, items: [...]}` from auto-applied log |
 
-- [ ] **Step 1: Write failing API tests** using Starlette `TestClient`
+- [x] **Step 1: Write failing API tests** using Starlette `TestClient`
 
 ```python
 # packages/core/tests/test_shell_api.py
@@ -359,11 +359,11 @@ def test_list_faces(tmp_path, monkeypatch):
     assert "self" in ids
 ```
 
-- [ ] **Step 2: Run — expect FAIL missing module**
+- [x] **Step 2: Run — expect FAIL missing module**
 
 Run: `uv run pytest packages/core/tests/test_shell_api.py -v`
 
-- [ ] **Step 3: Implement `shell_api.py`**
+- [x] **Step 3: Implement `shell_api.py`**
 
 Key rules in implementation:
 
@@ -388,12 +388,12 @@ def shell_api_cmd(
 
 Write token to `data_dir()/shell-api.token` with mode 0600; print path once.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest packages/core/tests/test_shell_api.py packages/core/tests/test_faces.py -q`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/core/src/memrelay/shell_api.py packages/core/tests/test_shell_api.py packages/core/src/memrelay/cli.py
@@ -415,7 +415,7 @@ git commit -s -m "feat(shell-api): localhost JSON API for twin product shell"
 - Consumes: shell API at `http://127.0.0.1:8787` with token from env `MEMRELAY_SHELL_TOKEN` or file
 - Produces: runnable `npm run tauri dev` showing three nav items: 分身 / 记忆 / 动态
 
-- [ ] **Step 1: Scaffold**
+- [x] **Step 1: Scaffold**
 
 ```bash
 cd /workspace/memrelay/packages/desktop
@@ -426,7 +426,7 @@ cd /workspace/memrelay/packages/desktop
 
 `App.tsx` must have three tabs with Chinese labels only (no MCP strings).
 
-- [ ] **Step 2: API client module**
+- [x] **Step 2: API client module**
 
 ```typescript
 // packages/desktop/src/api.ts
@@ -456,7 +456,7 @@ export const listMemories = (q = "") =>
 export const getActivity = () => api<{ digest: string; items: any[] }>("/v1/activity");
 ```
 
-- [ ] **Step 3: Wire three screens**
+- [x] **Step 3: Wire three screens**
 
 - 分身: textarea + send → `askTwin`; show answer, citations, disclosure  
 - 记忆: search box → `listMemories`; list titles  
@@ -464,7 +464,7 @@ export const getActivity = () => api<{ digest: string; items: any[] }>("/v1/acti
 
 Settings gear (secondary): paste token + base URL (first-run only).
 
-- [ ] **Step 4: Manual smoke**
+- [x] **Step 4: Manual smoke**
 
 ```bash
 # terminal A
@@ -476,7 +476,7 @@ cd packages/desktop && npm install && npm run tauri dev
 
 Expected: ask a question; see cited answer; memories list non-empty if vault has notes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/desktop
@@ -491,17 +491,17 @@ git commit -s -m "feat(desktop): 忆桥分身 shell with 分身/记忆/动态"
 - Modify: `packages/desktop/src-tauri/src/lib.rs` (or `main.rs`) — on app start, spawn `memrelay shell-api` if health check fails
 - Modify: `packages/desktop/README.md` — human install steps (Chinese + English)
 
-- [ ] **Step 1: Document spawn contract in README**
+- [x] **Step 1: Document spawn contract in README**
 
 Desktop looks for `memrelay` on PATH; runs `memrelay shell-api --port 8787 --token-file <app_data>/shell-api.token`.
 
-- [ ] **Step 2: Implement sidecar spawn + health poll** (Rust `Command`, poll `/v1/health`)
+- [x] **Step 2: Implement sidecar spawn + health poll** (Rust `Command`, poll `/v1/health`)
 
-- [ ] **Step 3: Manual test cold start without pre-running API**
+- [x] **Step 3: Manual test cold start without pre-running API**
 
 Expected: app opens, API comes up, 分身 works.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -s -m "feat(desktop): spawn local shell-api on launch"
@@ -511,16 +511,16 @@ git commit -s -m "feat(desktop): spawn local shell-api on launch"
 
 ### Task 6: Phase 1 verification gate
 
-- [ ] **Step 1: Engine tests**
+- [x] **Step 1: Engine tests**
 
 Run: `cd /workspace/memrelay && uv run pytest packages/core/tests -q`  
 Expected: all PASS
 
-- [ ] **Step 2: Spec coverage check**
+- [x] **Step 2: Spec coverage check**
 
 Confirm Phase 1 hits: faces model, desktop three entries, self face chat with citations, memory browse, activity digest, OSS engine still MCP-compatible. Sync + mobile left to Phase 2.
 
-- [ ] **Step 3: Commit docs touch if needed**
+- [x] **Step 3: Commit docs touch if needed**
 
 Update `packages/desktop/README.md` status from “planned” to “Phase 1 scaffold”.
 

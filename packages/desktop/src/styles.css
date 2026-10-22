@@ -1,0 +1,118 @@
+:root {
+  color: #1c1915;
+  background: #f3efe6;
+  font-family: "PingFang SC", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid #0f6e6b;
+  outline-offset: 2px;
+}
+
+.app { max-width: 880px; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+
+header { display: flex; align-items: center; justify-content: space-between; }
+
+h1 { font-size: 1.35rem; font-weight: 650; letter-spacing: 0.04em; margin: 0; }
+
+.gear {
+  border: 1px solid #d9d1c3;
+  background: #fffdf8;
+  border-radius: 999px;
+  padding: 0.25rem 0.8rem;
+  cursor: pointer;
+}
+
+nav { display: flex; gap: 0.4rem; margin: 1rem 0; border-bottom: 1px solid #e4dccf; }
+
+nav button {
+  background: none;
+  border: 0;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  color: #5c564c;
+}
+
+nav button[aria-current="page"] {
+  color: #0f6e6b;
+  box-shadow: inset 0 -2px 0 #0f6e6b;
+}
+
+.row { display: flex; gap: 0.6rem; align-items: center; }
+
+label { display: block; font-size: 0.85rem; color: #5c564c; margin-bottom: 0.35rem; }
+
+textarea, input[type="text"], input[type="password"], select {
+  width: 100%;
+  border: 1px solid #d9d1c3;
+  background: #fffdf8;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+textarea { min-height: 7rem; resize: vertical; }
+
+.primary {
+  background: #0f6e6b;
+  color: #fffdf8;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+}
+
+.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.card {
+  background: #fffdf8;
+  border: 1px solid #e4dccf;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  margin-top: 0.8rem;
+}
+
+.meta { color: #5c564c; font-size: 0.85rem; }
+
+.disclosure { font-size: 0.85rem; color: #5c564c; }
+
+.list { list-style: none; padding: 0; margin: 0.6rem 0 0; }
+
+.list button, .item {
+  width: 100%;
+  text-align: left;
+  background: #fffdf8;
+  border: 1px solid #e4dccf;
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.45rem;
+  cursor: pointer;
+}
+
+.error { color: #8a3b2c; }
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 21, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.dialog form {
+  width: min(440px, 100%);
+  background: #f3efe6;
+  border-radius: 16px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.8rem; }
+
+pre { white-space: pre-wrap; margin: 0; font: inherit; }
