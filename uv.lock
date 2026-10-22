@@ -6,12 +6,13 @@ resolution-markers = [
     "python_full_version == '3.14.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.14.*' and sys_platform != 'emscripten'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "(python_full_version < '3.14' and sys_platform != 'emscripten') or (python_full_version < '3.12' and sys_platform == 'emscripten')",
+    "python_full_version < '3.12' or (python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten')",
 ]
 
 [manifest]
 members = [
     "memrelay",
+    "memrelay-sync",
     "memrelay-workspace",
 ]
 
@@ -775,6 +776,7 @@ name = "memrelay"
 version = "0.2.0.dev0"
 source = { editable = "packages/core" }
 dependencies = [
+    { name = "cryptography" },
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "platformdirs" },
@@ -789,6 +791,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=42" },
     { name = "fastmcp", specifier = ">=4.1,<5" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "platformdirs", specifier = ">=4" },
@@ -802,6 +805,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "memrelay-sync"
+version = "0.1.0"
+source = { editable = "packages/sync" }
+dependencies = [
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "starlette", specifier = ">=0.37" },
+    { name = "uvicorn", specifier = ">=0.30" },
+]
+
+[[package]]
 name = "memrelay-workspace"
 version = "0.0.0"
 source = { virtual = "." }
@@ -809,6 +827,7 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "memrelay" },
+    { name = "memrelay-sync" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -819,6 +838,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "memrelay", editable = "packages/core" },
+    { name = "memrelay-sync", editable = "packages/sync" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "ruff", specifier = ">=0.6" },

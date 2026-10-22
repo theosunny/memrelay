@@ -8,16 +8,17 @@ description = "MemRelay monorepo root (not published)"
 package = false
 
 [tool.uv.workspace]
-members = ["packages/core"]
+members = ["packages/core", "packages/sync"]
 
 [tool.uv.sources]
 memrelay = { workspace = true }
+memrelay-sync = { workspace = true }
 
 [dependency-groups]
-dev = ["memrelay", "pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
+dev = ["memrelay", "memrelay-sync", "pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/core/tests"]
+testpaths = ["packages/core/tests", "packages/sync/tests"]
 asyncio_mode = "auto"
 markers = ["integration: needs the basic-memory executable on PATH"]
 
@@ -30,4 +31,4 @@ select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501", "B008"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["memrelay"]
+known-first-party = ["memrelay", "memrelay_sync"]
