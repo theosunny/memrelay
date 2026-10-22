@@ -29,12 +29,12 @@ def test_end_to_end_cli(home, tmp_path, monkeypatch):
                    ensure_ascii=False) + "\n", encoding="utf-8")
 
     ok("init", "--vault", str(tmp_path / "vault"))
-    assert "proposed=1" in ok("capture", "claude-code")
+    cap = ok("capture", "claude-code")
+    assert "proposed=1" in cap and "auto=1" in cap
     assert "proposed=0" in ok("capture", "claude-code")
-    out = json.loads(ok("inbox", "list", "--json"))
-    assert len(out) == 1 and out[0]["type"] == "preference"
-    assert "preferences/" in ok("inbox", "approve", out[0]["id"])
     assert "Inbox empty" in ok("inbox", "list")
+    prefs = list((tmp_path / "vault" / "preferences").glob("*.md"))
+    assert len(prefs) == 1 and "简洁" in prefs[0].read_text(encoding="utf-8")
 
     built = ok("profile", "build", "--yes")
     assert "written:" in built

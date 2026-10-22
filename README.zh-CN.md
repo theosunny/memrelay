@@ -130,7 +130,19 @@ memrelay draft "回复同事：本周发版安排" --channel work   # 只输出�
 memrelay eval init && memrelay eval run
 ```
 
-画像层可选接入 LLM（默认离线规则），支持任意 OpenAI 兼容接口：在 `config.toml` 写 `persona_llm = "deepseek"`（或 `openai`、`qwen`、`kimi`、`ollama`、`openai-compat`）；key 从对应环境变量读取，如 `DEEPSEEK_API_KEY`。
+画像层可选接入 LLM（默认离线规则），支持任意 OpenAI 兼容接口：在 `config.toml` 写 `persona_llm = "deepseek"`（或 `openai`、`qwen`、`kimi`、`ollama`、`glm`、`openai-compat`）；key 从对应环境变量读取，如 `DEEPSEEK_API_KEY`。
+
+**智谱 GLM Coding Plan**（抽取器 + 画像）：设 `extractor = "openai"`、`persona_llm = "glm"`，环境变量 `GLM_API_KEY`，并把 `[llm]` 指到 Coding 端点（**仅适用于 Coding Plan 密钥**，普通 GLM key 无效）：
+
+```toml
+extractor = "openai"
+persona_llm = "glm"
+[llm]
+base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
+model = "glm-5.3-flash"
+api_key_env = "GLM_API_KEY"
+```
+
 
 ## 安全模型
 

@@ -1,5 +1,5 @@
 """LLM extractor for any OpenAI-compatible Chat Completions endpoint (OpenAI, DeepSeek,
-Qwen/DashScope compatible mode, Kimi, Ollama ...).
+Qwen/DashScope compatible mode, Kimi, Ollama, Zhipu GLM Coding Plan ...).
 
 The prompt is adapted from Mem0's FACT_RETRIEVAL_PROMPT (mem0/configs/prompts.py,
 Apache-2.0, https://github.com/mem0ai/mem0) and extended with type/confidence/evidence/valid_from.
@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import os
 from collections.abc import Iterable
 
 import httpx
 
 from ..capture.base import Message
+from ..llm import message_text
 from .base import Candidate
+
+log = logging.getLogger(__name__)
 
 PROMPT = """You are a Personal Information Organizer. Extract durable facts about the USER from
 the conversation below: personal details, preferences, plans, projects, relationships,
@@ -36,38 +40,59 @@ ALLOWED = {"event", "fact", "preference", "procedure", "person", "project", "pri
 
 class OpenAICompatExtractor:
     def __init__(self, base_url: str, model: str, api_key: str | None,
-                 client: httpx.Client | None = None, batch: int = 40):
+                 client: httpx.Client | None = None, batch: int = 40,
+                 max_tokens: int = 1024):
         self.base_url, self.model, self.api_key = base_url.rstrip("/"), model, api_key
         self.client = client or httpx.Client(timeout=60)
         self.batch = batch
+        self.max_tokens = max_tokens
         self.name = f"openai-compat:{model}"
 
     @classmethod
     def from_config(cls, llm) -> OpenAICompatExtractor:
         return cls(llm.base_url, llm.model, os.environ.get(llm.api_key_env))
 
+    def _post(self, body: dict, headers: dict) -> httpx.Response:
+        url = f"{self.base_url}/chat/completions"
+        r = self.client.post(url, headers=headers, json=body)
+        if r.status_code >= 400 and "response_format" in body:
+            err = (r.text or "")[:300].lower()
+            if (r.status_code == 400
+                    or any(k in err for k in ("response_format", "json_object", "unsupported",
+                                              "invalid", "not support"))):
+                body = {k: v for k, v in body.items() if k != "response_format"}
+                log.debug("extractor retry without response_format (%s)", r.status_code)
+                r = self.client.post(url, headers=headers, json=body)
+        return r
+
     def _call(self, msgs: list[Message]) -> list[Candidate]:
         convo = "\n".join(f"[{i}] {m.role}: {m.text[:2000]}" for i, m in enumerate(msgs))
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-        r = self.client.post(
-            f"{self.base_url}/chat/completions",
-            headers=headers,
-            json={
-                "model": self.model,
-                "temperature": 0,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {"role": "system", "content": PROMPT.replace("{today}", dt.date.today().isoformat())},
-                    {"role": "user", "content": convo},
-                ],
-            },
-        )
+        body = {
+            "model": self.model,
+            "temperature": 0,
+            "max_tokens": self.max_tokens,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": PROMPT.replace("{today}", dt.date.today().isoformat())},
+                {"role": "user", "content": convo},
+            ],
+        }
+        r = self._post(body, headers)
         r.raise_for_status()
-        text = r.json()["choices"][0]["message"]["content"]
+        try:
+            msg = r.json()["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+            return []
+        text = message_text(msg)
+        if not text:
+            return []
         try:
             items = json.loads(text).get("memories", [])
         except (json.JSONDecodeError, AttributeError):
-            return []
+            # content may be fenced / wrapped
+            from ..llm import parse_json
+            items = parse_json(text).get("memories", [])
         out = []
         for it in items if isinstance(items, list) else []:
             if not isinstance(it, dict) or not it.get("content"):

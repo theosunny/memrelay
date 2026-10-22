@@ -35,8 +35,11 @@ def test_codex_capture(home, tmp_path, inbox):
     (d / "other.jsonl").write_text(jl({"type": "event_msg", "payload": {"type": "user_message", "message": "我喜欢猫"}}), encoding="utf-8")
     src = codex.CodexSource(root)
     r = run_once(src, StubExtractor(), inbox, CursorState("codex"))
-    assert r.messages == 2 and len(r.proposed) == 1
-    n = inbox.list()[0][1]
+    assert r.messages == 2 and len(r.proposed) == 1 and len(r.auto_approved) == 1
+    from memrelay.schema import Note
+    prefs = list((inbox.vault.root / "preferences").glob("*.md"))
+    assert prefs
+    n = Note.from_markdown(prefs[0].read_text(encoding="utf-8"))
     assert "pnpm" in n.title and n.source_agent == "codex" and "rollout-" in n.source_ref
     assert run_once(src, StubExtractor(), inbox, CursorState("codex")).messages == 0
 
@@ -55,8 +58,10 @@ def test_gemini_capture(home, tmp_path, inbox):
     ), encoding="utf-8")
     src = gemini.GeminiCliSource(root)
     r = run_once(src, StubExtractor(), inbox, CursorState("gemini-cli"))
-    assert r.messages == 2 and len(r.proposed) == 1
-    assert "dark mode" in inbox.list()[0][1].title
+    assert r.messages == 2 and len(r.proposed) == 1 and len(r.auto_approved) == 1
+    from memrelay.schema import Note
+    prefs = list((inbox.vault.root / "preferences").glob("*.md"))
+    assert any("dark mode" in Note.from_markdown(f.read_text(encoding="utf-8")).title for f in prefs)
     assert gemini.default_root(tmp_path) == tmp_path / ".gemini" / "tmp"
 
 
@@ -91,15 +96,24 @@ def test_watch_all(home, tmp_path, inbox):
         os.fsync(fh.fileno())
     # Also bump mtime explicitly — some FSEvents setups coalesce pure appends.
     os.utime(f, None)
+    def vault_count():
+        root = inbox.vault.root
+        return sum(1 for d in ("preferences", "facts") for _ in (root / d).glob("*.md"))
     deadline = time.time() + 20
     while time.time() < deadline:
-        if len(inbox.list()) >= 2:
+        if vault_count() >= 2:
             break
         time.sleep(0.1)
     stop.set()
     th.join(timeout=5)
-    titles = " ".join(n.title for _, n in inbox.list())
-    assert len(inbox.list()) >= 2, (
-        f"expected 2 inbox items after append; inbox={titles!r} reports={[(s, len(r.proposed)) for s, r in reports]!r}"
+    from memrelay.schema import Note
+    titles = " ".join(
+        Note.from_markdown(f.read_text(encoding="utf-8")).title
+        for d in ("preferences", "facts")
+        for f in (inbox.vault.root / d).glob("*.md")
+    )
+    assert vault_count() >= 2, (
+        f"expected 2 vault items after append; vault={titles!r} "
+        f"reports={[(s, len(r.proposed), len(r.auto_approved)) for s, r in reports]!r}"
     )
     assert {sid for sid, _ in reports} >= {"claude-code", "codex"}

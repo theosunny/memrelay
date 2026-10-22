@@ -142,8 +142,22 @@ memrelay eval init && memrelay eval run
 ```
 
 Optional LLM for the persona layer (offline rules by default), any OpenAI-compatible endpoint:
-`persona_llm = "deepseek"` (or `openai`, `qwen`, `kimi`, `ollama`, `openai-compat`) in
+`persona_llm = "deepseek"` (or `openai`, `qwen`, `kimi`, `ollama`, `glm`, `openai-compat`) in
 `config.toml`; the key is read from the matching env var such as `DEEPSEEK_API_KEY`.
+
+**Zhipu GLM Coding Plan** (extractor + persona): set `extractor = "openai"`,
+`persona_llm = "glm"`, export `GLM_API_KEY`, and point `[llm]` at the coding endpoint
+(coding-plan keys only — not general GLM keys):
+
+```toml
+extractor = "openai"
+persona_llm = "glm"
+[llm]
+base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
+model = "glm-5.3-flash"
+api_key_env = "GLM_API_KEY"
+```
+
 
 ## Security model
 

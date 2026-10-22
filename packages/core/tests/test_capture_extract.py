@@ -55,12 +55,20 @@ def test_incremental_capture(home, tmp_path, inbox):
     state = CursorState("claude-code")
     r = run_once(src, StubExtractor(), inbox, state)
     assert r.messages == 3 and len(r.proposed) == 2
-    titles = sorted(n.title for _, n in inbox.list())
+    # stub clear matches conf=0.7 → review.mode=auto auto-approves into vault
+    assert len(r.auto_approved) == 2 and inbox.list() == []
+    from memrelay.schema import Note
+    notes = []
+    for d in ("preferences", "facts"):
+        for f in (inbox.vault.root / d).glob("*.md"):
+            notes.append(Note.from_markdown(f.read_text(encoding="utf-8")))
+    titles = sorted(n.title for n in notes)
     assert any("Asia/Shanghai" in t for t in titles) and any("prefer short" in t for t in titles)
     assert not any("猫" in t or "狗" in t for t in titles)
-    n = inbox.list()[0][1]
+    n = notes[0]
     assert n.source_channel == "local-capture" and n.source_agent == "claude-code"
     assert n.source_ref and "#L" in n.source_ref and n.extractor == "stub@0.1"
+    assert n.confidence == 0.7 and "auto_approved" in n.flags
 
     # second run: nothing new
     r = run_once(src, StubExtractor(), inbox, CursorState("claude-code"))
@@ -109,6 +117,7 @@ def test_stub_extractor_rules():
     assert ("fact", "我是一名独立开发者") in kinds
     assert ("fact", "my dog is called Mochi") in kinds
     assert not any("tabs" in c.content for c in out)
+    assert all(c.confidence == 0.7 for c in out)  # clear preference/fact above min_confidence
 
 
 def test_llm_extractor_with_mock_transport():
@@ -118,6 +127,8 @@ def test_llm_extractor_with_mock_transport():
         body = json.loads(req.content)
         seen["auth"] = req.headers.get("authorization")
         seen["model"] = body["model"]
+        seen["max_tokens"] = body.get("max_tokens")
+        assert body.get("max_tokens") == 1024
         assert "user: 我住在杭州" in body["messages"][1]["content"]
         content = json.dumps({"memories": [
             {"title": "常住杭州", "content": "用户住在杭州", "type": "fact", "confidence": 0.99,
@@ -130,7 +141,7 @@ def test_llm_extractor_with_mock_transport():
     ex = OpenAICompatExtractor("https://llm.example/v1", "m1", "k",
                                client=httpx.Client(transport=httpx.MockTransport(handler)))
     out = ex.extract([_m("user", "我住在杭州", 7)])
-    assert seen == {"auth": "Bearer k", "model": "m1"}
+    assert seen == {"auth": "Bearer k", "model": "m1", "max_tokens": 1024}
     assert out[0].type == "fact" and out[0].confidence == 0.9  # capped
     assert out[0].source_ref == "f#L7" and str(out[0].valid_from) == "2025-01-01"
     assert out[1].type == "fact" and out[1].source_ref is None
@@ -163,15 +174,59 @@ def test_watch_picks_up_new_lines(home, tmp_path, inbox):
         f.flush()
         os.fsync(f.fileno())
     os.utime(p, None)
-    # Poll inbox (not report count): an empty re-run must not end the wait early.
+    # Poll vault (auto-approve): count preference notes, not inbox.
+    def vault_prefs():
+        return list((inbox.vault.root / "preferences").glob("*.md"))
     deadline = time.time() + 20
     while time.time() < deadline:
-        if len(inbox.list()) >= 2:
+        if len(vault_prefs()) >= 2:
             break
         time.sleep(0.1)
     stop.set()
     th.join(timeout=5)
-    assert len(inbox.list()) >= 2, (
-        f"inbox={[(n.title, n) for _, n in inbox.list()]!r} "
-        f"reports={[(r.messages, len(r.proposed)) for r in reports]!r}"
+    assert len(vault_prefs()) >= 2, (
+        f"prefs={vault_prefs()!r} inbox={inbox.list()!r} "
+        f"reports={[(r.messages, len(r.proposed), len(r.auto_approved)) for r in reports]!r}"
     )
+
+
+def test_llm_extractor_reasoning_content_fallback():
+    def handler(req: httpx.Request) -> httpx.Response:
+        content = json.dumps({"memories": [
+            {"title": "t", "content": "住杭州", "type": "fact", "confidence": 0.8, "msg": 0},
+        ]})
+        return httpx.Response(200, json={"choices": [{"message": {
+            "content": "", "reasoning_content": content}}]})
+
+    ex = OpenAICompatExtractor("https://llm.example/v1", "m1", "k",
+                               client=httpx.Client(transport=httpx.MockTransport(handler)))
+    out = ex.extract([_m("user", "我住在杭州")])
+    assert len(out) == 1 and out[0].content == "住杭州"
+
+
+def test_llm_extractor_empty_reasoning_not_json_returns_empty():
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {
+            "content": None, "reasoning_content": "thinking about cats..."}}]})
+
+    ex = OpenAICompatExtractor("https://llm.example/v1", "m1", "k",
+                               client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert ex.extract([_m("user", "我住在杭州")]) == []
+
+
+def test_llm_extractor_retries_without_response_format():
+    calls = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        body = json.loads(req.content)
+        if "response_format" in body:
+            return httpx.Response(400, json={"error": {"message": "response_format not supported"}})
+        content = json.dumps({"memories": [
+            {"title": "t", "content": "ok", "type": "fact", "confidence": 0.8, "msg": 0}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    ex = OpenAICompatExtractor("https://llm.example/v1", "m1", "k",
+                               client=httpx.Client(transport=httpx.MockTransport(handler)))
+    out = ex.extract([_m("user", "我住在杭州")])
+    assert calls["n"] == 2 and len(out) == 1

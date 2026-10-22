@@ -21,11 +21,13 @@ def test_openai_compat_request_shape():
     assert llm.complete("sys", "hi", json_mode=True) == '{"ok": 1}'
     assert seen["url"] == "https://api.deepseek.com/v1/chat/completions" and seen["auth"] == "Bearer k"
     assert seen["body"]["response_format"] == {"type": "json_object"}
+    assert seen["body"]["max_tokens"] == 1024
     assert [m["role"] for m in seen["body"]["messages"]] == ["system", "user"]
     no_key = OpenAICompatLLM("http://localhost:11434/v1", "m", None,
                              client=httpx.Client(transport=httpx.MockTransport(handler)))
     no_key.complete("s", "u")
     assert seen["auth"] is None and "response_format" not in seen["body"]
+    assert seen["body"]["max_tokens"] == 1024
 
 
 def test_get_llm_modes(monkeypatch):
@@ -62,3 +64,37 @@ def test_parse_json_and_stub():
     s = StubLLM(["one", "two"])
     assert s.complete("a", "b") == "one" and s.complete("a", "b") == "two" and s.complete("a", "b") == ""
     assert StubLLM(lambda sy, u: u.upper()).complete("s", "hi") == "HI"
+
+
+def test_glm_preset(monkeypatch):
+    monkeypatch.setenv("GLM_API_KEY", "gk")
+    cfg = Config(persona_llm="glm")
+    m = get_llm(cfg)
+    assert m.base_url == PRESETS["glm"]["base_url"]
+    assert m.model == "glm-5.3-flash" and m.api_key == "gk"
+    assert "coding/paas" in m.base_url
+
+
+def test_reasoning_content_and_response_format_retry():
+    from memrelay.llm import looks_like_json, message_text
+
+    assert looks_like_json('{"a":1}') and looks_like_json("```json\n{}\n```")
+    assert not looks_like_json("just thinking") and not looks_like_json("")
+    assert message_text({"content": "hi"}) == "hi"
+    assert message_text({"content": "", "reasoning_content": '{"ok": true}'}) == '{"ok": true}'
+    assert message_text({"content": None, "reasoning_content": "thinking..."}) == ""
+
+    calls = {"n": 0}
+
+    def handler(req: httpx.Request):
+        calls["n"] += 1
+        body = json.loads(req.content)
+        if "response_format" in body:
+            return httpx.Response(400, text="response_format json_object unsupported")
+        return httpx.Response(200, json={"choices": [{"message": {
+            "content": "", "reasoning_content": '{"ok": 1}'}}]})
+
+    llm = OpenAICompatLLM("https://example/v1", "m", "k",
+                          client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert llm.complete("s", "u", json_mode=True) == '{"ok": 1}'
+    assert calls["n"] == 2

@@ -80,7 +80,13 @@ def test_scan_import_and_dedupe(home, tmp_path, inbox):
                                archive=lambda k, raw: archived.append((k, json.loads(raw))))
     assert rep.kind == "chatgpt" and rep.messages == 3 and len(rep.proposed) == 2 and rep.archived
     assert archived[0][0] == "chatgpt" and archived[0][1][0]["conversation_id"] == "c1"
-    notes = [inbox.get(i) for i in rep.proposed]
+    # stub conf 0.7 + auto export-import → vault; proposed ids no longer in inbox
+    assert inbox.list() == []
+    from memrelay.schema import Note
+    notes = []
+    for d in ("preferences", "facts", "principles", "events", "projects"):
+        for f in (inbox.vault.root / d).rglob("*.md"):
+            notes.append(Note.from_markdown(f.read_text(encoding="utf-8")))
     assert {n.source_channel for n in notes} == {"export-import"}
     assert {n.source_agent for n in notes} == {"chatgpt"}
     assert importers.scan([dl])[0].already_imported
