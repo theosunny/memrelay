@@ -32,7 +32,10 @@ def notes_between(vault: Vault, start: dt.date, end: dt.date, *, reflections: bo
         if (n.type == "reflection") != reflections:
             continue
         d = n.captured_at.date()
-        if start <= d <= end or (n.type == "event" and n.valid_from and start <= n.valid_from <= end):
+        in_window = start <= d <= end
+        if n.valid_from and start <= n.valid_from <= end:
+            in_window = True  # dated events / reflections keyed by valid_from
+        if in_window:
             out.append((vault.rel(p), n))
     out.sort(key=lambda x: (x[1].captured_at, x[0]))
     return out
@@ -91,9 +94,10 @@ Format: "## 洞见 / Insights" then bullets "- Q: … → insight [n]". Same lan
 
 def _reflection(title: str, period: str, day: dt.date, items, body: str, mode: str) -> Note:
     text = f"# {title}\n\n{body}\n\n## 来源 / Sources\n\n" + "\n".join(f"- {s}" for s in _sources(items))
+    noon = dt.datetime(day.year, day.month, day.day, 12, 0, tzinfo=dt.UTC)
     return Note(
         title=title, type="reflection", body=text, period=period, valid_from=day,
-        confidence=0.7, importance=4, evidence=len(items),
+        captured_at=noon, confidence=0.7, importance=4, evidence=len(items),
         evidence_refs=[rel for rel, _ in items],
         source_agent="memrelay-reflect", source_channel="reflection", extractor=mode,
     )
