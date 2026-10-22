@@ -6,6 +6,7 @@ import datetime as dt
 import difflib
 import json
 import sys
+from pathlib import Path
 
 import typer
 
@@ -56,6 +57,17 @@ def serve() -> None:
     from .gateway import build_server
 
     build_server(Config.load()).run(show_banner=False)
+
+
+@app.command("shell-api")
+def shell_api_cmd(
+    port: int = typer.Option(8787, "--port"),
+    token_file: Path | None = typer.Option(None, "--token-file"),
+) -> None:
+    """Local JSON API for the desktop/mobile shell (127.0.0.1 only)."""
+    from .shell_api import serve_shell_api
+
+    serve_shell_api(port=port, token_file=token_file)
 
 
 @app.command()
