@@ -1,3 +1,19 @@
+const toggle = document.querySelector("#nav-toggle");
+const panel = document.querySelector("#nav-panel");
+
+toggle?.addEventListener("click", () => {
+  const open = !panel.classList.contains("open");
+  panel.classList.toggle("open", open);
+  toggle.setAttribute("aria-expanded", String(open));
+});
+
+panel?.addEventListener("click", (event) => {
+  if (event.target.closest("a")) {
+    panel.classList.remove("open");
+    toggle?.setAttribute("aria-expanded", "false");
+  }
+});
+
 const button = document.querySelector("#mac-download");
 const note = document.querySelector("#mac-note");
 

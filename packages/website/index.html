@@ -4,73 +4,204 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>忆桥 MemRelay</title>
-  <meta name="description" content="忆桥：个人数字分身、记忆整合、千面。钥匙留在设备上。">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2314120e'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='18' fill='%23f4efe6' font-family='serif'%3E%E5%BF%86%3C/text%3E%3C/svg%3E">
+  <meta name="description" content="忆桥：一份个人记忆给所有 AI 智能体，并逐渐成为你的数字分身。本机 Markdown，默认全自动加护栏，端到端加密同步。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e14'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%238eb4ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <a class="skip" href="#download">到下载</a>
-  <header class="wrap mast">
-    <a class="mark" href="#top">忆桥</a>
-    <nav aria-label="页内">
-      <a href="#download">下载</a>
-      <a href="#sync">同步</a>
-      <a href="https://github.com/theosunny/memrelay">GitHub</a>
-    </nav>
+  <a class="skip" href="#top">到正文</a>
+  <header class="nav">
+    <div class="row">
+      <a class="mark" href="#top">忆桥</a>
+      <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel">菜单</button>
+      <nav id="nav-panel" aria-label="页内">
+        <a href="#problem">问题</a>
+        <a href="#how">原理</a>
+        <a href="#features">能力</a>
+        <a href="#clients">客户端</a>
+        <a href="#privacy">钥匙</a>
+        <a href="#download">下载</a>
+      </nav>
+      <a class="cta" href="#download">下载</a>
+    </div>
   </header>
 
-  <main id="top" class="wrap">
-    <section class="hero" aria-labelledby="title">
-      <p class="kicker">个人数字分身 · 记忆整合 · 千面</p>
-      <h1 id="title">忆桥</h1>
-      <p class="lead">一份记在你自己设备上的记忆。电脑上的分身可以问，手机上可以看。同一份记忆，换一张面。</p>
-      <p>同步出去的只有密文。打开笔记的钥匙不离开设备。</p>
+  <main id="top">
+    <section class="slide hero">
+      <div class="wrap center">
+        <p class="kicker">个人记忆 · 数字分身</p>
+        <h1>一份记忆，<br>给所有智能体。</h1>
+        <p class="lead">存在你自己电脑上的 Markdown。默认可信的写入直接入库，其余先停下来。然后它逐渐成为你的分身。</p>
+        <div class="btns">
+          <a class="cta" id="mac-download" href="https://github.com/theosunny/memrelay/releases/latest">即将发布</a>
+          <a class="ghost" href="#how">看它怎么工作</a>
+        </div>
+        <a class="more" href="#problem">向下</a>
+      </div>
     </section>
 
-    <section id="download" aria-labelledby="download-title">
-      <h2 id="download-title">下载</h2>
+    <section id="problem" class="slide">
+      <div class="wrap">
+        <p class="kicker">换一个工具</p>
+        <h2>刚才说过的话，<br>下一个智能体听不见。</h2>
+        <p class="lead">你跟 Claude Code 说过你用 pnpm，跟 Cursor 说过时区，跟 ChatGPT 讲过项目。一换工具，它们全忘了。</p>
+      </div>
+    </section>
 
-      <h3>macOS</h3>
-      <p id="mac-note" class="quiet">即将发布。安装包还没挂到 GitHub Releases 时，从源码构建。</p>
-      <p><a class="download" id="mac-download" href="https://github.com/theosunny/memrelay/releases/latest">即将发布</a></p>
-      <p class="quiet">在 Mac 上，进入仓库的 <code>packages/desktop</code>：</p>
-      <pre><code>npm install
+    <section class="slide">
+      <div class="wrap center">
+        <p class="kicker">忆桥做的事</p>
+        <h2>智能体已经够聪明。<br>缺的是你自己的那一份。</h2>
+        <p class="lead">不是公司的知识库。是一份留在你磁盘上的个人记忆，所有智能体共用。</p>
+      </div>
+    </section>
+
+    <section id="how" class="slide">
+      <div class="wrap">
+        <p class="kicker">原理</p>
+        <h2>接上。拦住。然后到处都能问。</h2>
+        <div class="orbit" aria-hidden="true">
+          <svg viewBox="0 0 640 220" preserveAspectRatio="none">
+            <line x1="320" y1="110" x2="92" y2="46" />
+            <line x1="320" y1="110" x2="92" y2="174" />
+            <line x1="320" y1="110" x2="548" y2="46" />
+            <line x1="320" y1="110" x2="548" y2="174" />
+          </svg>
+          <span class="hub">你的记忆</span>
+          <span class="sat s1">采集</span>
+          <span class="sat s2">导入</span>
+          <span class="sat s3">桌面分身</span>
+          <span class="sat s4">手机</span>
+        </div>
+        <ol class="cols">
+          <li>
+            <span>01</span>
+            <h3>接上你已经在用的智能体</h3>
+            <p>通过 MCP 写入配置。先备份，可以一条命令回滚。</p>
+          </li>
+          <li>
+            <span>02</span>
+            <h3>护栏决定什么入库</h3>
+            <p>可信且安全的直接写入。密钥、注入、低置信的先停在一旁。</p>
+          </li>
+          <li>
+            <span>03</span>
+            <h3>电脑上问，手机上看</h3>
+            <p>分身按你的面回答，只出草稿。同步出去的只有密文。</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="features" class="slide">
+      <div class="wrap">
+        <p class="kicker">你得到的</p>
+        <h2>回答能指回你写过的那一条。</h2>
+        <article class="proof">
+          <p class="proof-q">我偏好什么？</p>
+          <p class="proof-a">你喜欢抹茶。</p>
+          <p class="proof-src"><i></i>饮品.md · 已审核 · 只在本机</p>
+        </article>
+        <ul class="cols bare">
+          <li>
+            <h3>接入就备份</h3>
+            <p>自动写 MCP 配置。不合意就回滚，不留一手改过的文件。</p>
+          </li>
+          <li>
+            <h3>默认自动，护栏常在</h3>
+            <p>高置信、可信来源直接入库。人工审核是可选的严格模式。</p>
+          </li>
+          <li>
+            <h3>画像带来源</h3>
+            <p>核心画像从已审核记忆生成。每条都能走回原来的笔记。</p>
+          </li>
+          <li>
+            <h3>分身只起草</h3>
+            <p>风格和决定只取自你写过的话。草稿不会自己发出去。</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="clients" class="slide">
+      <div class="wrap center">
+        <p class="kicker">你已经打开的工具</p>
+        <h2>同一份记忆，接进这些智能体。</h2>
+        <ul class="pills">
+          <li>Claude Code</li>
+          <li>Cursor</li>
+          <li>Codex</li>
+          <li>Gemini CLI</li>
+          <li>Claude Desktop</li>
+          <li>VS Code</li>
+          <li>Windsurf</li>
+          <li>Cline</li>
+        </ul>
+        <p class="note">豆包、Kimi、通义千问走引导，只打印步骤，不写文件。ChatGPT 和 Claude.ai 用官方导出包导入。</p>
+      </div>
+    </section>
+
+    <section id="privacy" class="slide">
+      <div class="wrap">
+        <p class="kicker">钥匙</p>
+        <h2>正文留在你的设备上。</h2>
+        <ul class="cols">
+          <li>
+            <h3>本机 Markdown</h3>
+            <p>记忆库是普通文件。你可以打开、改、搬走。</p>
+          </li>
+          <li>
+            <h3>同步只见密文</h3>
+            <p>官方同步存不下笔记原文。配对用的钥匙不离开设备。</p>
+          </li>
+          <li>
+            <h3>网关不放行乱写</h3>
+            <p>智能体除了提议新记忆，不能改已经审核过的笔记。</p>
+          </li>
+        </ul>
+        <article class="proof sync">
+          <p class="proof-q">官方同步</p>
+          <p class="proof-a url">https://memrelay-sync.preview.tencent-zeabur.cn</p>
+          <p class="proof-src">设置里的「同步服务」填这个地址。本机则用 http://127.0.0.1:8790。改地址后重新生成配对码。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="download" class="slide finale">
+      <div class="wrap center">
+        <h2>在 Mac 上打开你的分身。</h2>
+        <p id="mac-note" class="lead">即将发布。还没有安装包时，展开下面的命令自己构建。</p>
+        <div class="btns">
+          <a class="cta" href="https://github.com/theosunny/memrelay/releases/latest">查看 Releases</a>
+          <a class="ghost" href="/m/">打开手机版</a>
+        </div>
+        <details>
+          <summary>从源码构建</summary>
+          <p>在 Mac 上进入 <code>packages/desktop</code>：</p>
+          <pre><code>npm install
 npm run tauri build</code></pre>
-      <p class="quiet">未签名的 <code>忆桥分身.app</code> 在 <code>src-tauri/target/release/bundle/macos/</code>，<code>.dmg</code> 在 <code>src-tauri/target/release/bundle/dmg/</code>。第一次请右键打开。从访达启动前先安装命令行程序：</p>
-      <pre><code>uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
-uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"</code></pre>
-
-      <h3>手机</h3>
-      <p>部署本站之后，用手机浏览器打开 <a href="/m/">/m/</a>。把它加到主屏幕即可当成分身入口。</p>
-      <p class="quiet">要打成 iOS / Android 安装包，用仓库里的 <code>packages/mobile</code>（需要 Xcode 或 Android Studio）。</p>
-      <p><a class="download" href="/m/">打开手机版</a></p>
-    </section>
-
-    <section id="sync" aria-labelledby="sync-title">
-      <h2 id="sync-title">同步</h2>
-      <p>桌面和手机填同一个同步服务地址。改地址之后，在电脑上重新生成配对码，再在手机里粘贴。</p>
-
-      <h3>官方同步</h3>
-      <p>地址 <code>https://memrelay-sync.preview.tencent-zeabur.cn</code></p>
-      <p class="quiet">桌面和手机的「同步服务」填这个地址。已经装好的应用在设置里改即可，不用重编。Zeabur 共享集群 2026-12-01 起暂停，2026-12-31 停止。</p>
-
-      <h3>自建同步</h3>
-      <p>在你自己的机器上：</p>
-      <pre><code>memrelay-sync --host 0.0.0.0 --port 8790</code></pre>
-      <p>两端的同步服务填 <code>http://那台机器:8790</code>。这台进程没有 TLS，不要把 8790 暴露到公网。公网用官方同步的 HTTPS。</p>
-      <p>只在本机用时，填 <code>http://127.0.0.1:8790</code>。桌面应用在这个端口空着的时候会自己拉起一份。</p>
-
-      <h3>钥匙</h3>
-      <p>配对串里的钥匙只留在设备上。服务器保存密文，看不到笔记正文，也打不开库。</p>
+          <p>未签名的应用在 <code>src-tauri/target/release/bundle/macos/</code>，dmg 在 <code>src-tauri/target/release/bundle/dmg/</code>。第一次请右键打开。从访达启动前先安装：</p>
+          <pre><code>uv tool install basic-memory
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"
+memrelay init
+memrelay connect --all</code></pre>
+        </details>
+      </div>
+      <footer class="foot">
+        <div class="row">
+          <a class="mark" href="#top">忆桥</a>
+          <nav aria-label="页脚">
+            <a href="https://github.com/theosunny/memrelay">GitHub</a>
+            <a href="https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md">设计说明</a>
+            <a href="https://github.com/theosunny/memrelay/blob/main/LICENSE">Apache-2.0</a>
+            <a href="https://memrelay-web.preview.tencent-zeabur.cn">官网</a>
+          </nav>
+        </div>
+        <p>个人数字分身。开源 Apache-2.0。Zeabur 共享集群 2026-12-01 起暂停，2026-12-31 停止。</p>
+      </footer>
     </section>
   </main>
-
-  <footer class="wrap foot">
-    <a href="https://github.com/theosunny/memrelay">GitHub</a>
-    <a href="https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md">设计说明</a>
-    <a href="https://github.com/theosunny/memrelay/blob/main/LICENSE">Apache-2.0</a>
-    <span class="quiet">官网 https://memrelay-web.preview.tencent-zeabur.cn</span>
-  </footer>
   <script src="site.js"></script>
 </body>
 </html>
