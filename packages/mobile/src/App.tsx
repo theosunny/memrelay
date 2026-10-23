@@ -140,7 +140,7 @@ export default function App() {
         <div className="dialog">
           <form role="dialog" aria-modal="true" aria-labelledby="settings-title" onSubmit={(e) => void pair(e)}>
             <h2 id="settings-title">配对</h2>
-            <p className="meta">把电脑上的配对内容粘贴到这里。电脑在线时才能提问；不在线时仍可看已经同步的记忆。</p>
+            <p className="meta">用相机扫描电脑上的二维码，或把配对内容粘贴到这里。电脑在线时才能提问；不在线时仍可看已经同步的记忆。</p>
             <label htmlFor="server">同步服务</label>
             <input id="server" value={server} onChange={(e) => setServer(e.target.value)} autoComplete="off" />
             <label htmlFor="pairing">配对内容</label>

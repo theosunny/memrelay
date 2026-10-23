@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 1421"
+    "preview": "vite preview --host 127.0.0.1 --port 1421",
+    "cap:sync": "npm run build && cap sync",
+    "ios": "cap open ios",
+    "android": "cap open android"
   },
   "dependencies": {
     "@capacitor/core": "^7",
@@ -14,7 +17,9 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^7",
     "@capacitor/cli": "^7",
+    "@capacitor/ios": "^7",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",

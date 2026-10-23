@@ -17,7 +17,9 @@ uv run memrelay-sync
 uv run memrelay sync pair --server http://127.0.0.1:8790
 ```
 
-3. 把打印出的整行 `mr1.…` 粘贴到手机的「配对内容」。同步服务地址要填手机能够访问的地址（真机不是 `127.0.0.1`）。密钥只在这行字里，不会发给服务器。
+3. 用手机相机扫描电脑上的配对二维码，或把整行 `mr1.…` 粘贴到「配对内容」。同步服务地址要填手机能够访问的地址（真机不是 `127.0.0.1`）。密钥只在这行字里，不会发给服务器。
+
+局域网：在电脑上执行 `memrelay-sync --host 0.0.0.0 --port 8790`（先退出已经占用 8790 的桌面自动启动）。不要把 8790 暴露到公网：没有 TLS，配对码只有 8 位。
 
 ## 运行
 
@@ -29,14 +31,16 @@ npm run dev
 
 打开 `http://127.0.0.1:1421`。生产包：`npm run build`，静态文件在 `dist/`。这是一个 PWA（`manifest.webmanifest` + `sw.js`）。
 
-Capacitor 配置已放在 `capacitor.config.json`（`io.memrelay.mobile`）。本仓库不生成 iOS/Android 工程。有 SDK 时：
+Capacitor 工程已经在 `ios/` 和 `android/`（`io.memrelay.mobile`）。PWA 仍然用 `npm run dev`。用 Xcode 或 Android Studio 打开前先同步网页：
 
 ```bash
-npx cap add android
-npx cap sync
+npm install
+npm run cap:sync
+npx cap open ios      # 需要 macOS、Xcode、CocoaPods（第一次 pod install）
+npx cap open android  # 需要 Android SDK
 ```
 
-`shortcut: no native project or push notifications in this repo, add them when a device SDK is part of the build.`
+`shortcut: no push notifications and no store signing, add them when a device build is actually shipped.`
 
 ## English
 
