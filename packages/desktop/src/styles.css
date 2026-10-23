@@ -119,3 +119,10 @@ textarea { min-height: 7rem; resize: vertical; }
 .qr { display: block; margin: 0.6rem auto; background: #fff; border-radius: 8px; }
 
 pre { white-space: pre-wrap; margin: 0; font: inherit; }
+
+.thread { display: flex; flex-direction: column; gap: 0.75rem; min-height: 24rem; }
+.bubble { max-width: 36rem; padding: 0.8rem 1rem; border-radius: 16px; background: #fffdf8; }
+.bubble.user { margin-left: auto; background: #efe7d8; }
+.composer { display: flex; gap: 0.5rem; margin-top: 0.8rem; }
+.composer textarea { flex: 1; min-height: 3.2rem; border-radius: 12px; border: 1px solid #d9d1c3; background: #fffdf8; }
+.chip { border: 1px solid #d9d1c3; background: #fffdf8; border-radius: 999px; padding: 0.35rem 0.9rem; }

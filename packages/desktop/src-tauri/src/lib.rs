@@ -276,6 +276,19 @@ fn shell_config(app: tauri::AppHandle) -> ShellConfig {
     }
 }
 
+#[tauri::command]
+fn read_transcript(app: tauri::AppHandle) -> String {
+    let Ok(dir) = app.path().app_data_dir() else { return String::new() };
+    std::fs::read_to_string(dir.join("transcript-self.json")).unwrap_or_default()
+}
+
+#[tauri::command]
+fn write_transcript(app: tauri::AppHandle, body: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join("transcript-self.json"), body).map_err(|e| e.to_string())
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -316,7 +329,7 @@ fn install_tray(app: &tauri::AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![shell_config, model_status, save_model])
+        .invoke_handler(tauri::generate_handler![shell_config, model_status, save_model, read_transcript, write_transcript])
         .setup(|app| {
             let ready = install_tray(app.handle()).is_ok();
             app.manage(TrayReady(ready));

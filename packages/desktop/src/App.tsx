@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import QRCode from "qrcode";
 import urls from "../../website/urls.json";
 import { ModelGate, type ModelSave } from "./ModelGate";
+import { ChatThread } from "./ChatThread";
+import { failTwin, finishTwin, markPending, parseTranscript, pushUser, serializeTranscript, type ChatMessage } from "./chat";
 import {
   askTwin,
   getActivity,
@@ -13,7 +15,6 @@ import {
   pairSync,
   runSync,
   type Activity,
-  type Answer,
   type Face,
   type MemoryDetail,
   type MemoryItem,
@@ -38,9 +39,9 @@ export default function App() {
   const [status, setStatus] = useState("正在连接…");
   const [faces, setFaces] = useState<Face[]>([]);
   const [faceId, setFaceId] = useState("self");
-  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState(false);
-  const [answer, setAnswer] = useState<Answer | null>(null);
   const [query, setQuery] = useState("");
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [detail, setDetail] = useState<MemoryDetail | null>(null);
@@ -105,6 +106,12 @@ export default function App() {
       setBase(localStorage.getItem("shellBase") || base);
       setToken(localStorage.getItem("shellToken") || "");
       setStatus(cfg.detail);
+      try {
+        const raw = await invoke<string>("read_transcript");
+        if (!gone) setMessages(parseTranscript(raw));
+      } catch {
+        if (!gone) setMessages([]);
+      }
       if (localStorage.getItem("shellToken")) await refresh("twin");
       else setStatus(cfg.detail || "需要填写令牌");
     })();
@@ -138,15 +145,30 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, gate]);
 
-  async function send() {
-    const q = question.trim();
+  async function persist(next: ChatMessage[]) {
+    try {
+      await invoke("write_transcript", { body: serializeTranscript(next) });
+    } catch {
+      // The thread stays on screen. A failed write does not show a path.
+    }
+  }
+
+  async function send(text: string) {
+    const q = text.trim();
     if (!q || asking) return;
     setAsking(true);
+    setDraft("");
     setError("");
+    const pending = markPending(pushUser(messages, q));
+    setMessages(pending);
     try {
-      setAnswer(await askTwin(q, faceId));
+      const done = finishTwin(pending, await askTwin(q, faceId));
+      setMessages(done);
+      await persist(done);
     } catch {
-      setError("暂时连不上。请检查设置里的地址和令牌。");
+      const failed = failTwin(pending);
+      setMessages(failed);
+      await persist(failed);
     } finally {
       setAsking(false);
     }
@@ -203,33 +225,7 @@ export default function App() {
               <option key={f.id} value={f.id}>{f.name}</option>
             ))}
           </select>
-          <label htmlFor="question">问题</label>
-          <textarea
-            id="question"
-            value={question}
-            placeholder="问问你的分身"
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send();
-            }}
-          />
-          <p><button className="primary" type="button" disabled={asking || !question.trim()} onClick={() => void send()}>{asking ? "正在回答…" : "发送"}</button></p>
-          {answer && (
-            <article className="card">
-              <p>{answer.answer}</p>
-              {answer.citations?.length ? (
-                <>
-                  <h3 className="meta">依据</h3>
-                  <ul className="list">
-                    {answer.citations.map((c) => (
-                      <li key={c.id}>[{c.n}] {c.title}<div className="meta">{c.snippet}</div></li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-              <p className="disclosure">{answer.disclosure}</p>
-            </article>
-          )}
+          <ChatThread messages={messages} draft={draft} onDraft={setDraft} onSend={(text) => { void send(text); }} disabled={asking} />
         </section>
       )}
 
