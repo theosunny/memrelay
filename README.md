@@ -123,7 +123,7 @@ Signing and the LAN sync warning: [packages/desktop/README.md](packages/desktop/
 
 官网: [https://memrelay-web.preview.tencent-zeabur.cn](https://memrelay-web.preview.tencent-zeabur.cn).
 
-**macOS.** The site's download button points at [GitHub Releases latest](https://github.com/theosunny/memrelay/releases/latest). Until a `.dmg` or `.app.zip` is attached, that button says 即将发布. Build on a Mac from `packages/desktop`:
+**macOS.** The site's download button points at [GitHub Releases latest](https://github.com/theosunny/memrelay/releases/latest). Until a `.dmg` or `MemRelay-*-macos.zip` is attached, that button says 即将发布. Build on a Mac from `packages/desktop`:
 
 ```bash
 npm install

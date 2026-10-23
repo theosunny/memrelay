@@ -86,7 +86,7 @@ fetch("https://api.github.com/repos/theosunny/memrelay/releases/latest", {
     const assets = rel.assets || [];
     const asset =
       assets.find((item) => /\.dmg$/i.test(item.name || "")) ||
-      assets.find((item) => /\.app\.zip$/i.test(item.name || ""));
+      assets.find((item) => /(?:\.app\.zip|-macos\.zip)$/i.test(item.name || ""));
     if (!asset) return;
     for (const button of downloads) {
       button.href = asset.browser_download_url;

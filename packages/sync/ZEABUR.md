@@ -30,10 +30,10 @@ TLS 由 Zeabur 终结。容器里是 HTTP。不要把同步容器的端口直接
 2. Dockerfile 路径填 `Dockerfile.website`。
 3. 不需要卷。Zeabur 注入 `PORT`，nginx 听这个端口。
 4. 生成域名并打开 HTTPS。首页是官网，`/m/` 是手机网页版。
-5. 下载按钮默认指向 `https://github.com/theosunny/memrelay/releases/latest`，文案是「即将发布」。浏览器能读到 Release 里的 `.dmg` 或 `.app.zip` 时，按钮改成「下载 macOS」并指向那个文件。没有安装包时，源码构建命令收在「从源码构建」里。
+5. 下载按钮默认指向 `https://github.com/theosunny/memrelay/releases/latest`，文案是「即将发布」。浏览器能读到 Release 里的 `.dmg` 或 `MemRelay-*-macos.zip` 时，按钮改成「下载 macOS」并指向那个文件。没有安装包时，源码构建命令收在「从源码构建」里。
 6. 改了 `packages/website` 之后，用同一个公开 Git 地址和 `Dockerfile.website` 重新构建这个官网服务。不用新建服务，域名保持 `https://memrelay-web.preview.tencent-zeabur.cn`。`/m/` 仍是手机网页版。导航（产品介绍、产品能力、定价、联系我们）要等这次重新构建之后才会出现在线上。
 
-打 macOS 包：GitHub Actions → `release-macos` → Run workflow。推送 `v*` tag 时，未签名的 `.dmg` 和 `.app.zip` 会挂到对应 Release。没有 Apple 证书也能跑。不要把 `APPLE_SIGNING_IDENTITY` 设成空字符串。
+打 macOS 包：GitHub Actions → `release-macos` → Run workflow。推送 `v*` tag 时，未签名的 `MemRelay-<version>-aarch64.dmg` 和 `MemRelay-<version>-macos.zip` 会挂到对应 Release。没有 Apple 证书也能跑。不要把 `APPLE_SIGNING_IDENTITY` 设成空字符串。
 
 ## GitHub 仓库首页
 

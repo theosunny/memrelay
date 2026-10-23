@@ -116,7 +116,7 @@ uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages
 
 官网：[https://memrelay-web.preview.tencent-zeabur.cn](https://memrelay-web.preview.tencent-zeabur.cn)。
 
-**macOS。** 官网上的按钮指向 [GitHub Releases 最新版](https://github.com/theosunny/memrelay/releases/latest)。还没有 `.dmg` 或 `.app.zip` 时，按钮写着「即将发布」。在 Mac 上进入 `packages/desktop`：
+**macOS。** 官网上的按钮指向 [GitHub Releases 最新版](https://github.com/theosunny/memrelay/releases/latest)。还没有 `.dmg` 或 `MemRelay-*-macos.zip` 时，按钮写着「即将发布」。在 Mac 上进入 `packages/desktop`：
 
 ```bash
 npm install
