@@ -27,6 +27,10 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "resources": {
+      "resources/memrelay": "memrelay",
+      "resources/memrelay-sync": "memrelay-sync"
+    },
     "macOS": {
       "signingIdentity": null,
       "providerShortName": null,

@@ -21,6 +21,11 @@ jobs:
           cache: npm
           cache-dependency-path: packages/desktop/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Freeze memrelay and memrelay-sync
+        run: packages/desktop/sidecar/build-macos.sh
       - name: Build unsigned app and dmg
         working-directory: packages/desktop
         run: |
