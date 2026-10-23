@@ -22,7 +22,10 @@ fetch("https://api.github.com/repos/theosunny/memrelay/releases/latest", {
 })
   .then((res) => (res.ok ? res.json() : Promise.reject(new Error("no release"))))
   .then((rel) => {
-    const asset = (rel.assets || []).find((item) => /\.(dmg|app\.zip)$/i.test(item.name || ""));
+    const assets = rel.assets || [];
+    const asset =
+      assets.find((item) => /\.dmg$/i.test(item.name || "")) ||
+      assets.find((item) => /\.app\.zip$/i.test(item.name || ""));
     if (!asset || !button) return;
     button.href = asset.browser_download_url;
     button.textContent = "下载 macOS";
