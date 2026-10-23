@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>忆桥 MemRelay</title>
+  <title>MemRelay · 忆桥</title>
   <meta name="description" content="忆桥：一份个人记忆给所有 AI 智能体，并逐渐成为你的数字分身。本机 Markdown，默认全自动加护栏，端到端加密同步。">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230c0e14'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%238eb4ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
@@ -12,35 +12,37 @@
   <a class="skip" href="#top">到正文</a>
   <header class="nav">
     <div class="row">
-      <a class="mark" href="#top">忆桥</a>
+      <a class="mark" href="#intro">
+        <span class="mark-en">MemRelay</span>
+        <span class="mark-zh">忆桥</span>
+      </a>
       <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel">菜单</button>
       <nav id="nav-panel" aria-label="页内">
-        <a href="#problem">问题</a>
-        <a href="#how">原理</a>
-        <a href="#features">能力</a>
-        <a href="#clients">客户端</a>
-        <a href="#privacy">钥匙</a>
-        <a href="#download">下载</a>
+        <a href="#intro">产品介绍</a>
+        <a href="#ability">产品能力</a>
+        <a href="#pricing">定价</a>
+        <a href="#contact">联系我们</a>
       </nav>
-      <a class="cta" href="#download">下载</a>
+      <a class="cta" id="nav-download" href="https://github.com/theosunny/memrelay/releases/latest">下载</a>
     </div>
   </header>
 
   <main id="top">
+    <div id="intro">
     <section class="slide hero">
       <div class="wrap center">
-        <p class="kicker">个人记忆 · 数字分身</p>
+        <p class="kicker">产品介绍</p>
         <h1>一份记忆，<br>给所有智能体。</h1>
         <p class="lead">存在你自己电脑上的 Markdown。默认可信的写入直接入库，其余先停下来。然后它逐渐成为你的分身。</p>
         <div class="btns">
           <a class="cta" id="mac-download" href="https://github.com/theosunny/memrelay/releases/latest">即将发布</a>
-          <a class="ghost" href="#how">看它怎么工作</a>
+          <a class="ghost" href="#ability">看它能做什么</a>
         </div>
         <a class="more" href="#problem">向下</a>
       </div>
     </section>
 
-    <section id="problem" class="slide">
+    <section id="problem" class="slide band">
       <div class="wrap">
         <p class="kicker">换一个工具</p>
         <h2>刚才说过的话，<br>下一个智能体听不见。</h2>
@@ -55,10 +57,12 @@
         <p class="lead">不是公司的知识库。是一份留在你磁盘上的个人记忆，所有智能体共用。</p>
       </div>
     </section>
+    </div>
 
-    <section id="how" class="slide">
+    <div id="ability">
+    <section id="how" class="slide band-ink">
       <div class="wrap">
-        <p class="kicker">原理</p>
+        <p class="kicker">产品能力</p>
         <h2>接上。拦住。然后到处都能问。</h2>
         <div class="orbit" aria-hidden="true">
           <svg viewBox="0 0 640 220" preserveAspectRatio="none">
@@ -93,9 +97,9 @@
       </div>
     </section>
 
-    <section id="features" class="slide">
+    <section id="features" class="slide band">
       <div class="wrap">
-        <p class="kicker">你得到的</p>
+        <p class="kicker">带来源</p>
         <h2>回答能指回你写过的那一条。</h2>
         <article class="proof">
           <p class="proof-q">我偏好什么？</p>
@@ -123,9 +127,9 @@
       </div>
     </section>
 
-    <section id="clients" class="slide">
+    <section id="clients" class="slide band-ink">
       <div class="wrap center">
-        <p class="kicker">你已经打开的工具</p>
+        <p class="kicker">接进这些智能体</p>
         <h2>同一份记忆，接进这些智能体。</h2>
         <ul class="pills">
           <li>Claude Code</li>
@@ -141,9 +145,9 @@
       </div>
     </section>
 
-    <section id="privacy" class="slide">
+    <section id="privacy" class="slide band">
       <div class="wrap">
-        <p class="kicker">钥匙</p>
+        <p class="kicker">留在设备上</p>
         <h2>正文留在你的设备上。</h2>
         <ul class="cols">
           <li>
@@ -166,9 +170,36 @@
         </article>
       </div>
     </section>
+    </div>
+
+    <section id="pricing" class="slide band">
+      <div class="wrap">
+        <p class="kicker">定价</p>
+        <h2>现在免费。<br>商业版以后再说。</h2>
+        <p class="lead">没有付费档，也没有编出来的价格。今天能用的是 Apache-2.0 的源码，和一台你自己的同步服务。</p>
+        <ul class="plans">
+          <li>
+            <p class="plan-name">开源</p>
+            <p class="plan-price">免费</p>
+            <p>自己构建桌面和手机，自己托管同步。许可证是 Apache-2.0。</p>
+          </li>
+          <li>
+            <p class="plan-name">商业版</p>
+            <p class="plan-price">即将推出</p>
+            <p>还没有收费方案。等有了会写在这里，不会先放一个空价格。</p>
+          </li>
+        </ul>
+        <article class="proof sync">
+          <p class="proof-q">官方同步只是预览</p>
+          <p class="proof-a url">https://memrelay-sync.preview.tencent-zeabur.cn</p>
+          <p class="proof-src">自建则用 http://127.0.0.1:8790。这条 Zeabur 地址会随共享集群在 2026-12-01 暂停，2026-12-31 停止。</p>
+        </article>
+      </div>
+    </section>
 
     <section id="download" class="slide finale">
       <div class="wrap center">
+        <p class="kicker">下载</p>
         <h2>在 Mac 上打开你的分身。</h2>
         <p id="mac-note" class="lead">即将发布。还没有安装包时，展开下面的命令自己构建。</p>
         <div class="btns">
@@ -188,20 +219,36 @@ memrelay init
 memrelay connect --all</code></pre>
         </details>
       </div>
-      <footer class="foot">
-        <div class="row">
-          <a class="mark" href="#top">忆桥</a>
-          <nav aria-label="页脚">
-            <a href="https://github.com/theosunny/memrelay">GitHub</a>
-            <a href="https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md">设计说明</a>
-            <a href="https://github.com/theosunny/memrelay/blob/main/LICENSE">Apache-2.0</a>
-            <a href="https://memrelay-web.preview.tencent-zeabur.cn">官网</a>
-          </nav>
+    </section>
+
+    <section id="contact" class="slide band-ink">
+      <div class="wrap center">
+        <p class="kicker">联系我们</p>
+        <h2>在 GitHub 上找我们。</h2>
+        <p class="lead">仓库没有公开邮箱。安装问题、想法和纠错都留在 GitHub。</p>
+        <div class="btns">
+          <a class="cta" href="https://github.com/theosunny/memrelay/issues">提一个 Issue</a>
+          <a class="ghost" href="https://github.com/theosunny/memrelay/discussions">参与讨论</a>
         </div>
-        <p>个人数字分身。开源 Apache-2.0。Zeabur 共享集群 2026-12-01 起暂停，2026-12-31 停止。</p>
-      </footer>
+      </div>
     </section>
   </main>
+  <footer class="foot">
+    <div class="row">
+      <a class="mark" href="#intro">
+        <span class="mark-en">MemRelay</span>
+        <span class="mark-zh">忆桥</span>
+      </a>
+      <nav aria-label="页脚">
+        <a href="https://github.com/theosunny/memrelay">GitHub</a>
+        <a href="https://github.com/theosunny/memrelay/issues">Issues</a>
+        <a href="https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md">设计说明</a>
+        <a href="https://github.com/theosunny/memrelay/blob/main/LICENSE">Apache-2.0</a>
+        <a href="https://memrelay-web.preview.tencent-zeabur.cn">官网</a>
+      </nav>
+    </div>
+    <p>MemRelay · 忆桥。个人数字分身。开源 Apache-2.0。Zeabur 共享集群 2026-12-01 起暂停，2026-12-31 停止。</p>
+  </footer>
   <script src="site.js"></script>
 </body>
 </html>

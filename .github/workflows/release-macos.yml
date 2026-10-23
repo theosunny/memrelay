@@ -29,17 +29,20 @@ jobs:
       - name: Zip the .app
         working-directory: packages/desktop
         run: |
+          version=$(node -p "require('./package.json').version")
           ditto -c -k --keepParent \
             "src-tauri/target/release/bundle/macos/忆桥分身.app" \
-            "src-tauri/target/release/bundle/macos/memrelay.app.zip"
+            "src-tauri/target/release/bundle/macos/memrelay-${version}.app.zip"
           cp src-tauri/target/release/bundle/dmg/*.dmg \
-            src-tauri/target/release/bundle/dmg/memrelay-aarch64.dmg
+            "src-tauri/target/release/bundle/dmg/memrelay-${version}-aarch64.dmg"
+          echo "MEMRELAY_DMG=packages/desktop/src-tauri/target/release/bundle/dmg/memrelay-${version}-aarch64.dmg" >> "$GITHUB_ENV"
+          echo "MEMRELAY_ZIP=packages/desktop/src-tauri/target/release/bundle/macos/memrelay-${version}.app.zip" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-unsigned
           path: |
-            packages/desktop/src-tauri/target/release/bundle/dmg/memrelay-aarch64.dmg
-            packages/desktop/src-tauri/target/release/bundle/macos/memrelay.app.zip
+            ${{ env.MEMRELAY_DMG }}
+            ${{ env.MEMRELAY_ZIP }}
           if-no-files-found: error
       - name: Attach to the GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -49,8 +52,8 @@ jobs:
           # /releases/latest, which skips GitHub prereleases.
           prerelease: false
           body: |
-            Unsigned macOS preview of 忆桥分身. Gatekeeper will warn the first time: right-click the app and choose Open.
+            Unsigned macOS build of 忆桥分身. Gatekeeper will warn the first time: right-click the app and choose Open.
             No Apple notarization.
           files: |
-            packages/desktop/src-tauri/target/release/bundle/dmg/memrelay-aarch64.dmg
-            packages/desktop/src-tauri/target/release/bundle/macos/memrelay.app.zip
+            ${{ env.MEMRELAY_DMG }}
+            ${{ env.MEMRELAY_ZIP }}

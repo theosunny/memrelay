@@ -46,7 +46,7 @@ npm run tauri build
 Unsigned artifacts:
 
 - `src-tauri/target/release/bundle/macos/忆桥分身.app`
-- `src-tauri/target/release/bundle/dmg/忆桥分身_0.1.0_aarch64.dmg` (or `x64`, matching the Mac you built on)
+- `src-tauri/target/release/bundle/dmg/忆桥分身_0.2.0_aarch64.dmg` (or `x64`, matching the Mac you built on)
 
 `bundle.targets` is `app` and `dmg`. `signingIdentity` and `providerShortName` are `null`, so the local build is unsigned. `shortcut: no Apple certificate in this repo, set the env vars below when you have a Developer ID.`
 
