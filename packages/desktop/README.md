@@ -71,7 +71,7 @@ uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages
 
 1. 安装 Xcode 命令行工具、Rust、Node.js 20+。
 2. 在仓库根目录执行 `uv tool install`（见上面的英文安装命令），让 `memrelay` 出现在 `~/.local/bin`。从访达打开时不看终端的 PATH。
-3. 进入 `packages/desktop`，执行 `npm install`，再执行 `npm run tauri dev`。
+3. 进入 `packages/desktop`，执行 `npm install`。开发用 `npm run tauri dev`。安装包用 `npm run tauri build`，未签名的 `.app` 和 `.dmg` 在 `src-tauri/target/release/bundle/`。
 4. 第一次打开会启动本机服务。三个入口是 **分身**、**记忆**、**动态**。问「我偏好什么」时，回答带依据和分身说明。
 5. 关掉窗口只会藏到菜单栏。要退出，用托盘里的「退出」。
 
