@@ -107,6 +107,15 @@ memrelay connect --all
 
 Restart your agents, then ask one of them "what do you know about me?".
 
+**macOS desktop app.** From `packages/desktop`: `npm install && npm run tauri build`. The unsigned `.app` is `src-tauri/target/release/bundle/macos/忆桥分身.app` and the `.dmg` is under `src-tauri/target/release/bundle/dmg/`. Install the CLI first so Finder can launch it without your shell PATH:
+
+```bash
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"
+```
+
+Signing and the LAN sync warning: [packages/desktop/README.md](packages/desktop/README.md).
+
 **In mainland China:** Basic Memory downloads a small embedding model from Hugging Face on
 first use. MemRelay checks whether `huggingface.co` is reachable and, if not, points
 `HF_ENDPOINT` at `https://hf-mirror.com`. If you set `HF_ENDPOINT` yourself, MemRelay leaves it

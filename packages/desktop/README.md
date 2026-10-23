@@ -6,11 +6,11 @@ The window talks only to the local shell API. 设置 also pairs a phone and runs
 ## What you need
 
 - An initialized MemRelay vault (`memrelay init`, default `~/MemRelay`)
-- `memrelay` on `PATH` (from this repo: `uv sync` at the root, then use `.venv/bin/memrelay`, or install the `packages/core` package)
-- Node.js 20+
-- Rust 1.90+ (current stable; Tauri 2.12 does not build on older compilers) and the platform webview: macOS uses the system WebKit; Linux needs `webkit2gtk-4.1` development packages
+- `memrelay` installed where a Finder launch can see it (not only a shell `PATH`). `uv tool install` puts it in `~/.local/bin/memrelay`. Homebrew's `/opt/homebrew/bin/memrelay` and `/usr/local/bin/memrelay` count too, as does `MEMRELAY_BIN`, or a copy next to the app binary (`Contents/MacOS/memrelay`).
+- Optional `memrelay-sync` in the same kind of place (`~/.local/bin/memrelay-sync` or `MEMRELAY_SYNC_BIN`). The app starts it on `127.0.0.1:8790` when that port is free.
+- Node.js 20+ and Rust 1.90+ to build. macOS uses the system WebKit. Linux dev needs `webkit2gtk-4.1`.
 
-The app looks for `memrelay` on `PATH` and, if nothing is listening on `127.0.0.1:8787`, runs:
+The app starts that `memrelay` with an absolute path, so a GUI launch does not use the terminal `PATH`. If nothing is listening on `127.0.0.1:8787`, it runs:
 
 ```bash
 memrelay shell-api --port 8787 --token-file <app data>/shell-api.token
@@ -34,18 +34,43 @@ npm install
 npm run tauri dev
 ```
 
-A release bundle (unsigned):
+## Build a macOS .app and .dmg
+
+On a Mac, from `packages/desktop`:
 
 ```bash
+npm install
 npm run tauri build
 ```
 
-The app bundle lands under `src-tauri/target/release/bundle/`. macOS will warn until the app is signed and notarized. That signing step is not part of Phase 1.
+Unsigned artifacts:
+
+- `src-tauri/target/release/bundle/macos/忆桥分身.app`
+- `src-tauri/target/release/bundle/dmg/忆桥分身_0.1.0_aarch64.dmg` (or `x64`, matching the Mac you built on)
+
+`bundle.targets` is `app` and `dmg`. `signingIdentity` and `providerShortName` are `null`, so the local build is unsigned. `shortcut: no Apple certificate in this repo, set the env vars below when you have a Developer ID.`
+
+```bash
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export APPLE_PROVIDER_SHORT_NAME="TEAMID"
+npm run tauri build
+```
+
+Gatekeeper will warn on the unsigned app. Right-click the `.app` and choose Open the first time. Entitlements for a signed build are `src-tauri/Entitlements.plist` (network client only).
+
+Install the engines before opening the app from Finder:
+
+```bash
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"
+```
+
+`shortcut: the app does not download Python. Those two commands are the install.` A LAN phone cannot use the auto-started sync server. Quit the app, then run `memrelay-sync --host 0.0.0.0 --port 8790` and put that Mac's LAN URL in the phone. Do not publish port 8790 on the internet: there is no TLS, and pair codes are short.
 
 ## 在 macOS 上运行
 
 1. 安装 Xcode 命令行工具、Rust、Node.js 20+。
-2. 在仓库根目录执行 `uv sync`，并把 `.venv/bin` 加进 `PATH`，这样桌面程序才能找到 `memrelay`。
+2. 在仓库根目录执行 `uv tool install`（见上面的英文安装命令），让 `memrelay` 出现在 `~/.local/bin`。从访达打开时不看终端的 PATH。
 3. 进入 `packages/desktop`，执行 `npm install`，再执行 `npm run tauri dev`。
 4. 第一次打开会启动本机服务。三个入口是 **分身**、**记忆**、**动态**。问「我偏好什么」时，回答带依据和分身说明。
 5. 关掉窗口只会藏到菜单栏。要退出，用托盘里的「退出」。
@@ -68,8 +93,8 @@ Open `http://127.0.0.1:1420`. The content security policy inside the tray app al
 
 ## Skipped
 
-- No installer, code signing, or auto-update.
-- `memrelay` is not bundled; it must be on `PATH`.
+- No Apple notarization in CI. The committed config signs nothing until `APPLE_SIGNING_IDENTITY` is set.
+- Python is not frozen into the `.app`. shortcut: a sidecar freeze is a new packaging pipeline, do that when `uv tool install` is not acceptable.
 - Memory browse has search and a single note, not a timeline or type filter.
 - JS client has no test runner yet.
-- Sync settings need a running `memrelay-sync`. The pairing text includes the vault key; it is shown only in 设置. The phone pastes it. There is no QR image.
+- 设置 shows a QR of the pairing string and the same text underneath. The string is the vault key.

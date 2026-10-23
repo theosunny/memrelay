@@ -114,5 +114,6 @@ textarea { min-height: 7rem; resize: vertical; }
 }
 
 .actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.8rem; }
+.qr { display: block; margin: 0.6rem auto; background: #fff; border-radius: 8px; }
 
 pre { white-space: pre-wrap; margin: 0; font: inherit; }

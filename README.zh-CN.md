@@ -100,6 +100,15 @@ memrelay connect --all
 
 重启各智能体，然后问其中一个：“你对我了解多少？”
 
+**macOS 桌面应用。** 在 `packages/desktop` 里执行 `npm install && npm run tauri build`。未签名的 `.app` 在 `src-tauri/target/release/bundle/macos/忆桥分身.app`，`.dmg` 在 `src-tauri/target/release/bundle/dmg/`。先安装命令行程序，从访达打开时才能找到它（不依赖终端 PATH）：
+
+```bash
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"
+```
+
+签名和局域网同步的说明见 [packages/desktop/README.md](packages/desktop/README.md)。
+
 **中国大陆用户**：Basic Memory 首次使用时要从 Hugging Face 下载一个小的嵌入模型。MemRelay 会先检测 `huggingface.co` 是否可达，不可达时自动把 `HF_ENDPOINT` 设为 `https://hf-mirror.com`。你自己设置过 `HF_ENDPOINT` 时以你的为准；在 `config.toml` 里写 `hf_endpoint = "off"` 可关闭这项检测。想让 `uv` 安装更快，也可以把 `UV_INDEX_URL` 设成你信任的 PyPI 镜像。
 
 ## 常用命令

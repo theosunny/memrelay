@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import QRCode from "qrcode";
 import {
   askTwin,
   getActivity,
@@ -36,7 +37,17 @@ export default function App() {
   const [syncServer, setSyncServer] = useState("http://127.0.0.1:8790");
   const [pairCode, setPairCode] = useState("");
   const [pairing, setPairing] = useState("");
+  const [qr, setQr] = useState("");
   const [syncMsg, setSyncMsg] = useState("");
+
+  useEffect(() => {
+    if (!pairing) { setQr(""); return; }
+    let gone = false;
+    void QRCode.toDataURL(pairing, { margin: 1, width: 192 }).then((url) => {
+      if (!gone) setQr(url);
+    }).catch(() => { if (!gone) setQr(""); });
+    return () => { gone = true; };
+  }, [pairing]);
 
   async function refresh(which: Tab = tab) {
     setError("");
@@ -218,7 +229,7 @@ export default function App() {
               else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
             }}>
             <h2 id="settings-title">设置</h2>
-            <p className="meta">第一次使用时填写本机服务的地址和令牌。</p>
+            {status ? <p role="status">{status}</p> : <p className="meta">第一次使用时填写本机服务的地址和令牌。</p>}
             <label htmlFor="base">服务地址</label>
             <input id="base" type="text" value={base} onChange={(e) => setBase(e.target.value)} autoComplete="off" autoFocus />
             <label htmlFor="token">令牌</label>
@@ -237,6 +248,8 @@ export default function App() {
               }).catch(() => setSyncMsg("同步服务没有连上"))}>同步一次</button>
             </div>
             {pairCode ? <p>配对码 {pairCode}</p> : null}
+            {qr ? <img className="qr" alt="配对二维码" src={qr} width={192} height={192} /> : null}
+            {qr ? <p className="meta">用手机相机扫描。扫不到就粘贴下面的文字。</p> : null}
             {pairing ? <textarea readOnly value={pairing} aria-label="配对内容" /> : null}
             {syncMsg ? <p className="meta">{syncMsg}</p> : null}
             <div className="actions">
