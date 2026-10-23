@@ -32,20 +32,40 @@ fn api_up() -> bool {
     port_up(8787)
 }
 
-fn tool_candidates(
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum LaunchMode {
+    Consumer,
+    Dev,
+}
+
+pub fn launch_mode() -> LaunchMode {
+    if cfg!(debug_assertions) {
+        LaunchMode::Dev
+    } else {
+        LaunchMode::Consumer
+    }
+}
+
+pub fn tool_candidates(
     name: &str,
+    mode: LaunchMode,
     from_env: Option<&std::path::Path>,
     home: Option<&std::path::Path>,
     exe_dir: Option<&std::path::Path>,
 ) -> Vec<PathBuf> {
+    let mut bundled = Vec::new();
+    if let Some(dir) = exe_dir {
+        bundled.push(dir.join(name));
+        bundled.push(dir.join("../Resources").join(name));
+    }
+    if mode == LaunchMode::Consumer {
+        return bundled;
+    }
     let mut out = Vec::new();
     if let Some(path) = from_env {
         out.push(path.to_path_buf());
     }
-    if let Some(dir) = exe_dir {
-        out.push(dir.join(name));
-        out.push(dir.join("../Resources").join(name));
-    }
+    out.extend(bundled);
     if let Some(home) = home {
         out.push(home.join(".local/bin").join(name));
     }
@@ -55,14 +75,25 @@ fn tool_candidates(
 }
 
 fn find_tool(name: &str) -> Option<PathBuf> {
+    let mode = launch_mode();
     let env_key = if name == "memrelay" { "MEMRELAY_BIN" } else { "MEMRELAY_SYNC_BIN" };
-    let from_env = std::env::var_os(env_key).map(PathBuf::from);
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let from_env = if mode == LaunchMode::Dev {
+        std::env::var_os(env_key).map(PathBuf::from)
+    } else {
+        None
+    };
+    let home = if mode == LaunchMode::Dev {
+        std::env::var_os("HOME").map(PathBuf::from)
+    } else {
+        None
+    };
     let exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()));
-    let mut paths = tool_candidates(name, from_env.as_deref(), home.as_deref(), exe.as_deref());
-    if let Some(path) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&path) {
-            paths.push(dir.join(name));
+    let mut paths = tool_candidates(name, mode, from_env.as_deref(), home.as_deref(), exe.as_deref());
+    if mode == LaunchMode::Dev {
+        if let Some(path) = std::env::var_os("PATH") {
+            for dir in std::env::split_paths(&path) {
+                paths.push(dir.join(name));
+            }
         }
     }
     // shortcut: no .exe suffix, add one when a Windows bundle is built
@@ -306,8 +337,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{startup_plan, tool_candidates};
-    use std::path::Path;
+    use super::{startup_plan, tool_candidates, LaunchMode};
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn consumer_startup_does_not_launch_sync() {
@@ -317,9 +348,10 @@ mod tests {
     }
 
     #[test]
-    fn candidates_check_env_then_app_then_user_bin() {
+    fn dev_candidates_include_user_installs() {
         let got = tool_candidates(
             "memrelay",
+            LaunchMode::Dev,
             Some(Path::new("/opt/custom/memrelay")),
             Some(Path::new("/Users/me")),
             Some(Path::new("/App.app/Contents/MacOS")),
@@ -329,5 +361,23 @@ mod tests {
         assert!(got.iter().any(|p| p == Path::new("/Users/me/.local/bin/memrelay")));
         assert!(got.iter().any(|p| p == Path::new("/opt/homebrew/bin/memrelay")));
         assert!(got.iter().any(|p| p == Path::new("/usr/local/bin/memrelay")));
+    }
+
+    #[test]
+    fn consumer_candidates_are_only_inside_the_app() {
+        let got = tool_candidates(
+            "memrelay",
+            LaunchMode::Consumer,
+            Some(Path::new("/opt/custom/memrelay")),
+            Some(Path::new("/Users/me")),
+            Some(Path::new("/App.app/Contents/MacOS")),
+        );
+        assert_eq!(
+            got,
+            vec![
+                PathBuf::from("/App.app/Contents/MacOS/memrelay"),
+                PathBuf::from("/App.app/Contents/MacOS/../Resources/memrelay"),
+            ]
+        );
     }
 }
