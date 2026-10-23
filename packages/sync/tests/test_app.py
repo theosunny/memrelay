@@ -56,3 +56,32 @@ def test_relay_roundtrip_stays_opaque(tmp_path):
 
 def test_health(tmp_path):
     assert TestClient(build_app(tmp_path / "store")).get("/health").json()["ok"] is True
+
+
+def test_pair_finish_locks_out(tmp_path):
+    client = TestClient(build_app(tmp_path / "store"))
+    started = client.post("/pair/start", json={}).json()
+    bad = {"pair_code": "AAAAAAAA", "device_pubkey": "x"}
+    for _ in range(7):
+        assert client.post("/pair/finish", json=bad).status_code == 404
+    assert client.post("/pair/finish", json=bad).status_code == 429
+    blocked = client.post("/pair/finish", json={"pair_code": started["pair_code"], "device_pubkey": "phone"})
+    assert blocked.status_code == 429
+
+
+def test_pair_success_clears_failures(tmp_path):
+    client = TestClient(build_app(tmp_path / "store"))
+    started = client.post("/pair/start", json={}).json()
+    bad = {"pair_code": "AAAAAAAA", "device_pubkey": "x"}
+    for _ in range(7):
+        assert client.post("/pair/finish", json=bad).status_code == 404
+    ok = client.post("/pair/finish", json={"pair_code": started["pair_code"], "device_pubkey": "phone"})
+    assert ok.status_code == 200
+    assert client.post("/pair/finish", json=bad).status_code == 404
+
+
+def test_pair_start_rate_limit(tmp_path):
+    client = TestClient(build_app(tmp_path / "store"))
+    for _ in range(20):
+        assert client.post("/pair/start", json={}).status_code == 200
+    assert client.post("/pair/start", json={}).status_code == 429

@@ -21,11 +21,15 @@ Deletes are not synced. `shortcut: no tombstones, add them when a deletion on on
 
 1. Desktop `POST /pair/start` `{"vault_id": "<hex>"}` → `{pair_code, vault_id}`. The code is 8 characters and expires in 10 minutes.
 2. Desktop `POST /pair/finish` `{"pair_code", "device_pubkey"}` → `{device_token, vault_id}`.
-3. The desktop shows a pairing string `mr1.<vault_id>.<pair_code>.<fernet-key>`. That string is the QR payload. v1 shows it as text to paste. `shortcut: no QR bitmap, render one when a QR library is already a dependency.`
+3. The desktop shows a QR of `mr1.<vault_id>.<pair_code>.<fernet-key>` and the same string as text. The phone scans or pastes. The key is not sent to the server.
 4. The phone parses the string locally and calls `/pair/finish` with the same code. The key is not sent.
 5. `device_pubkey` is stored as a label. Encryption stays the shared vault key. `shortcut: not a per-device sealed box, switch if devices must not share one key.`
 
 Later calls send `Authorization: Bearer <device_token>`. The server stores `sha256(token)`, not the token.
+
+`/pair/finish` allows 8 misses per client, then locks that client for 10 minutes. `/pair/start` allows 20 new codes per client per 10 minutes. Counters are in memory. `shortcut: one process, a restart clears the lockout.`
+
+Bind `127.0.0.1` unless a phone on the same LAN must connect (`--host 0.0.0.0`). That is still not a public-internet deployment: there is no TLS, and the pair code is only 8 characters.
 
 ## Blobs
 

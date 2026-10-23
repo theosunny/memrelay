@@ -25,6 +25,8 @@ _RID = re.compile(r"^[0-9a-f]{16}$")
 _ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _MAX = 2_000_000
 _PAIR_TTL = 600
+_FAILS = 8
+_STARTS = 20
 
 
 def _cors(resp: Response) -> Response:
@@ -46,6 +48,38 @@ class Store:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        # shortcut: counters are per process, a restart clears a lockout
+        self._fails: dict[str, list[float]] = {}
+        self._locked_until: dict[str, float] = {}
+        self._starts: dict[str, list[float]] = {}
+
+    def allow_start(self, ip: str) -> bool:
+        now = time.time()
+        with self._lock:
+            hits = [t for t in self._starts.get(ip, []) if now - t < _PAIR_TTL]
+            if len(hits) >= _STARTS:
+                self._starts[ip] = hits
+                return False
+            hits.append(now)
+            self._starts[ip] = hits
+            return True
+
+    def allow_finish(self, ip: str) -> bool:
+        with self._lock:
+            return time.time() >= self._locked_until.get(ip, 0)
+
+    def record_finish(self, ip: str, ok: bool) -> None:
+        with self._lock:
+            if ok:
+                self._fails.pop(ip, None)
+                self._locked_until.pop(ip, None)
+                return
+            now = time.time()
+            hits = [t for t in self._fails.get(ip, []) if now - t < _PAIR_TTL]
+            hits.append(now)
+            self._fails[ip] = hits
+            if len(hits) >= _FAILS:
+                self._locked_until[ip] = now + _PAIR_TTL
 
     def start_pair(self, vault_id: str | None) -> dict:
         vault_id = (vault_id or secrets.token_hex(16)).lower()
@@ -169,6 +203,10 @@ def build_app(root: Path) -> Starlette:
         header = request.headers.get("authorization") or ""
         return header[7:] if header[:7].lower() == "bearer " else ""
 
+    def _ip(request: Request) -> str:
+        # shortcut: one bucket per TCP peer; a reverse proxy would share that bucket
+        return request.client.host if request.client else "-"
+
     def _auth(request: Request, vault_id: str) -> Response | None:
         if store.vault_for(_token(request)) != vault_id:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
@@ -178,6 +216,8 @@ def build_app(root: Path) -> Starlette:
         return JSONResponse({"ok": True})
 
     async def pair_start(request: Request) -> Response:
+        if not store.allow_start(_ip(request)):
+            return JSONResponse({"error": "rate_limited"}, status_code=429)
         try:
             body = await request.json()
         except Exception:
@@ -190,14 +230,27 @@ def build_app(root: Path) -> Starlette:
             return JSONResponse({"error": "bad_vault"}, status_code=400)
 
     async def pair_finish(request: Request) -> Response:
+        ip = _ip(request)
+        if not store.allow_finish(ip):
+            return JSONResponse({"error": "rate_limited"}, status_code=429)
         try:
             body = await request.json()
         except Exception:
+            body = None
+        if not isinstance(body, dict):
+            store.record_finish(ip, False)
+            if not store.allow_finish(ip):
+                return JSONResponse({"error": "rate_limited"}, status_code=429)
             return JSONResponse({"error": "bad_json"}, status_code=400)
         try:
-            return JSONResponse(store.finish_pair(str(body.get("pair_code") or ""), str(body.get("device_pubkey") or "")))
+            result = store.finish_pair(str(body.get("pair_code") or ""), str(body.get("device_pubkey") or ""))
         except KeyError:
+            store.record_finish(ip, False)
+            if not store.allow_finish(ip):
+                return JSONResponse({"error": "rate_limited"}, status_code=429)
             return JSONResponse({"error": "unknown_code"}, status_code=404)
+        store.record_finish(ip, True)
+        return JSONResponse(result)
 
     async def put_blob(request: Request) -> Response:
         vault_id, path_hash = request.path_params["vault_id"], request.path_params["path_hash"]
@@ -319,6 +372,6 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8790)
     parser.add_argument("--data", default=None)
     args = parser.parse_args()
-    # shortcut: default bind is loopback, pass --host 0.0.0.0 when a phone on the LAN must connect
+    # shortcut: loopback by default. --host 0.0.0.0 is for a LAN phone only; public internet still needs TLS and a login stronger than an 8-character code
     root = Path(args.data or os.environ.get("MEMRELAY_SYNC_DIR") or Path.home() / ".memrelay-sync")
     uvicorn.run(build_app(root), host=args.host, port=args.port, log_level="warning")
