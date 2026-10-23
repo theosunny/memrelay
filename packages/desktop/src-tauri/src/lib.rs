@@ -1,3 +1,5 @@
+mod model;
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -114,6 +116,27 @@ fn ensure_shell(token_file: &std::path::Path) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn model_status(app: tauri::AppHandle) -> model::ModelStatus {
+    match app.path().app_data_dir() {
+        Ok(dir) => model::read_status(&dir, &model::KeyringStore),
+        Err(_) => model::ModelStatus {
+            configured: false,
+            provider: String::new(),
+            model: String::new(),
+        },
+    }
+}
+
+#[tauri::command]
+fn save_model(app: tauri::AppHandle, provider: String, api_key: String, model: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let Some(bin) = find_tool("memrelay") else {
+        return Err("没有找到分身程序".into());
+    };
+    model::persist_model(&dir, &model::KeyringStore, &bin, &provider, &api_key, &model)
+}
+
+#[tauri::command]
 fn shell_config(app: tauri::AppHandle) -> ShellConfig {
     ensure_sync();
     let token_file: PathBuf = match app.path().app_data_dir() {
@@ -187,7 +210,7 @@ fn install_tray(app: &tauri::AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![shell_config])
+        .invoke_handler(tauri::generate_handler![shell_config, model_status, save_model])
         .setup(|app| {
             let ready = install_tray(app.handle()).is_ok();
             app.manage(TrayReady(ready));

@@ -72,6 +72,18 @@ def shell_api_cmd(
     serve_shell_api(port=port, token_file=token_file)
 
 
+@app.command("configure-model")
+def configure_model_cmd(
+    home: Path = typer.Option(..., "--home"),
+    provider: str = typer.Option(..., "--provider"),
+    model: str = typer.Option("", "--model"),
+) -> None:
+    """Write persona provider into MEMRELAY_HOME. The API key is not accepted here."""
+    from .setup_model import main_json
+
+    main_json(home, provider, model)
+
+
 @sync_app.command("pair")
 def sync_pair(server: str = typer.Option("http://127.0.0.1:8790", "--server")) -> None:
     """Show a pairing code for a phone. The key stays on this machine."""

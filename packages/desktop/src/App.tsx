@@ -1,6 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import QRCode from "qrcode";
 import urls from "../../website/urls.json";
+import { ModelGate, type ModelSave } from "./ModelGate";
 import {
   askTwin,
   getActivity,
@@ -20,6 +22,7 @@ import {
 type Tab = "twin" | "memory" | "activity";
 
 const LOCAL_SYNC = "http://127.0.0.1:8790";
+type Gate = "loading" | "needed" | "ready";
 
 function initialSync(): string {
   const saved = localStorage.getItem("syncServer");
@@ -48,6 +51,9 @@ export default function App() {
   const [pairing, setPairing] = useState("");
   const [qr, setQr] = useState("");
   const [syncMsg, setSyncMsg] = useState("");
+  const [gate, setGate] = useState<Gate>("loading");
+  const [gateError, setGateError] = useState("");
+  const skipSettings = useRef(false);
 
   useEffect(() => {
     if (!pairing) { setQr(""); return; }
@@ -79,12 +85,28 @@ export default function App() {
 
   useEffect(() => {
     let gone = false;
+    void invoke<{ configured: boolean }>("model_status")
+      .then((status) => {
+        if (!gone) setGate(status.configured ? "ready" : "needed");
+      })
+      .catch(() => {
+        if (!gone) setGate("needed");
+      });
+    return () => {
+      gone = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gate !== "ready") return;
+    let gone = false;
     (async () => {
       const cfg = await loadShellConfig();
       if (gone) return;
       setBase(localStorage.getItem("shellBase") || base);
       setToken(localStorage.getItem("shellToken") || "");
-      if (!cfg.ready) setSettings(true);
+      if (!cfg.ready && !skipSettings.current) setSettings(true);
+      skipSettings.current = false;
       setStatus(cfg.detail);
       if (localStorage.getItem("shellToken")) await refresh("twin");
       else setStatus(cfg.detail || "需要填写令牌");
@@ -94,13 +116,31 @@ export default function App() {
     };
     // First connection only. Later refreshes follow the visible tab.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gate]);
+
+  async function saveModel(input: ModelSave) {
+    setGateError("");
+    try {
+      await invoke("save_model", {
+        provider: input.provider,
+        apiKey: input.apiKey,
+        model: input.model,
+      });
+    } catch (err) {
+      const text = typeof err === "string" ? err : "没有保存";
+      setGateError(input.apiKey && text.includes(input.apiKey) ? "没有保存" : text);
+      return;
+    }
+    skipSettings.current = true;
+    setGate("ready");
+  }
 
   useEffect(() => {
+    if (gate !== "ready") return;
     if (localStorage.getItem("shellToken")) void refresh(tab);
     // query is submitted explicitly so typing does not refetch every keystroke
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, gate]);
 
   async function send() {
     const q = question.trim();
@@ -125,6 +165,21 @@ export default function App() {
     localStorage.setItem("syncServer", chosen);
     setSettings(false);
     void refresh(tab);
+  }
+
+  if (gate !== "ready") {
+    return (
+      <div className="app">
+        {gate === "needed" ? (
+          <>
+            <ModelGate onSave={(input) => { void saveModel(input); }} />
+            {gateError ? <p className="error" role="alert">{gateError}</p> : null}
+          </>
+        ) : (
+          <p className="meta">正在连接…</p>
+        )}
+      </div>
+    );
   }
 
   return (
