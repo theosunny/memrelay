@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import QRCode from "qrcode";
 import urls from "../../website/urls.json";
 import { ModelGate, type ModelSave } from "./ModelGate";
 import { ChatThread } from "./ChatThread";
+import { SettingsDialog } from "./SettingsDialog";
 import { failTwin, finishTwin, markPending, parseTranscript, pushUser, serializeTranscript, type ChatMessage } from "./chat";
 import {
   askTwin,
@@ -48,6 +49,10 @@ export default function App() {
   const [activity, setActivity] = useState<Activity | null>(null);
   const [error, setError] = useState("");
   const [syncServer, setSyncServer] = useState(initialSync);
+  const [localSync, setLocalSync] = useState(LOCAL_SYNC);
+  const [version, setVersion] = useState("0.2.0");
+  const [modelProvider, setModelProvider] = useState("deepseek");
+  const [modelName, setModelName] = useState("");
   const [pairCode, setPairCode] = useState("");
   const [pairing, setPairing] = useState("");
   const [qr, setQr] = useState("");
@@ -85,12 +90,30 @@ export default function App() {
 
   useEffect(() => {
     let gone = false;
-    void invoke<{ configured: boolean }>("model_status")
+    void invoke<{ configured: boolean; provider: string; model: string }>("model_status")
       .then((status) => {
-        if (!gone) setGate(status.configured ? "ready" : "needed");
+        if (gone) return;
+        if (status.provider) setModelProvider(status.provider);
+        setModelName(status.model || "");
+        setGate(status.configured ? "ready" : "needed");
       })
       .catch(() => {
         if (!gone) setGate("needed");
+      });
+    return () => {
+      gone = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let gone = false;
+    void import("@tauri-apps/api/app")
+      .then((mod) => mod.getVersion())
+      .then((value) => {
+        if (!gone && value) setVersion(value);
+      })
+      .catch(() => {
+        if (!gone) setVersion("0.2.0");
       });
     return () => {
       gone = true;
@@ -174,16 +197,83 @@ export default function App() {
     }
   }
 
-  function saveSettings(event: FormEvent) {
-    event.preventDefault();
+  function closeSettings() {
     localStorage.setItem("shellBase", base.trim() || "http://127.0.0.1:8787");
     localStorage.setItem("shellToken", token.trim());
-    const chosen = syncServer.trim() || LOCAL_SYNC;
+    const chosen = syncServer.trim() || initialSync();
     setSyncServer(chosen);
     localStorage.setItem("syncServer", chosen);
     setSettings(false);
     void refresh(tab);
   }
+
+  async function onSaveModel(input: { provider: string; apiKey: string; model: string }) {
+    try {
+      await invoke("save_model", input);
+      setModelProvider(input.provider);
+      setModelName(input.model);
+      setSyncMsg("");
+    } catch (err) {
+      const text = typeof err === "string" ? err : "没有保存";
+      const leaks = text.includes("8787") || text.includes("127.0.0.1:8787") || Boolean(input.apiKey && text.includes(input.apiKey));
+      setSyncMsg(leaks ? "没有保存" : text);
+    }
+  }
+
+  async function onPair() {
+    const chosen = syncServer.trim() || initialSync();
+    setSyncServer(chosen);
+    localStorage.setItem("syncServer", chosen);
+    try {
+      const paired = await pairSync(chosen);
+      setPairCode(paired.pair_code);
+      setPairing(paired.pairing);
+      setSyncMsg("");
+    } catch {
+      setSyncMsg("同步没有完成");
+      return;
+    }
+    try {
+      await runSync();
+    } catch {
+      setSyncMsg("同步没有完成");
+    }
+  }
+
+  async function onUseLocal() {
+    try {
+      await invoke("use_local_sync");
+      const chosen = localSync.trim() || LOCAL_SYNC;
+      setLocalSync(chosen);
+      setSyncServer(chosen);
+      localStorage.setItem("syncServer", chosen);
+      setSyncMsg("");
+    } catch {
+      setSyncMsg("分身暂时没连上");
+    }
+  }
+
+  async function onSyncOnce() {
+    try {
+      await runSync();
+      setSyncMsg("");
+    } catch {
+      setSyncMsg("同步没有完成");
+    }
+  }
+
+  async function onOpenData() {
+    try {
+      await invoke("open_data_dir");
+      setSyncMsg("");
+    } catch {
+      setSyncMsg("没有打开数据目录");
+    }
+  }
+
+  const distribution = (import.meta.env as { VITE_DISTRIBUTION?: string }).VITE_DISTRIBUTION === "notarized"
+    ? "已公证"
+    : "开发构建";
 
   if (gate !== "ready") {
     return (
@@ -276,54 +366,29 @@ export default function App() {
       )}
 
       {settings && (
-        <div className="dialog" role="presentation">
-          <form role="dialog" aria-modal="true" aria-labelledby="settings-title" onSubmit={saveSettings}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") { setSettings(false); return; }
-              if (e.key !== "Tab") return;
-              const items = [...e.currentTarget.querySelectorAll<HTMLElement>("input, textarea, button")].filter((el) => !el.hasAttribute("disabled"));
-              const first = items[0];
-              const last = items[items.length - 1];
-              if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
-              else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
-            }}>
-            <h2 id="settings-title">设置</h2>
-            {status ? <p role="status">{status}</p> : <p className="meta">第一次使用时填写本机服务的地址和令牌。</p>}
-            <label htmlFor="base">服务地址</label>
-            <input id="base" type="text" value={base} onChange={(e) => setBase(e.target.value)} autoComplete="off" autoFocus />
-            <label htmlFor="token">令牌</label>
-            <input id="token" type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
-            <h3>同步：配对码</h3>
-            <label htmlFor="sync-server">同步服务</label>
-            <input id="sync-server" type="text" value={syncServer} onChange={(e) => setSyncServer(e.target.value)} autoComplete="off" />
-            <p className="meta">官方同步地址，部署后再生效。本机则填 http://127.0.0.1:8790。改地址后重新生成配对码。钥匙只留在设备上。</p>
-            <div className="actions">
-              <button type="button" className="gear" onClick={() => { setSyncServer(LOCAL_SYNC); localStorage.setItem("syncServer", LOCAL_SYNC); }}>使用本机</button>
-              <button type="button" className="gear" onClick={() => {
-                const chosen = syncServer.trim() || LOCAL_SYNC;
-                setSyncServer(chosen);
-                localStorage.setItem("syncServer", chosen);
-                void pairSync(chosen).then((r) => {
-                  setPairCode(r.pair_code);
-                  setPairing(r.pairing);
-                  setSyncMsg("");
-                }).catch(() => setSyncMsg("同步服务没有连上"));
-              }}>生成配对码</button>
-              <button type="button" className="gear" onClick={() => void runSync().then((r) => {
-                setSyncMsg(`已同步。冲突 ${r.pull.conflicts.length} 条`);
-              }).catch(() => setSyncMsg("同步服务没有连上"))}>同步一次</button>
-            </div>
-            {pairCode ? <p>配对码 {pairCode}</p> : null}
-            {qr ? <img className="qr" alt="配对二维码" src={qr} width={192} height={192} /> : null}
-            {qr ? <p className="meta">用手机相机扫描。扫不到就粘贴下面的文字。</p> : null}
-            {pairing ? <textarea readOnly value={pairing} aria-label="配对内容" /> : null}
-            {syncMsg ? <p className="meta">{syncMsg}</p> : null}
-            <div className="actions">
-              <button type="button" className="gear" onClick={() => setSettings(false)}>关闭</button>
-              <button type="submit" className="primary">保存</button>
-            </div>
-          </form>
-        </div>
+        <SettingsDialog
+          version={version}
+          distribution={distribution}
+          provider={modelProvider}
+          model={modelName}
+          syncServer={syncServer}
+          base={base}
+          token={token}
+          localSync={localSync}
+          pairCode={pairCode}
+          pairing={pairing}
+          qr={qr}
+          syncMsg={syncMsg}
+          onClose={closeSettings}
+          onSaveModel={(input) => { void onSaveModel(input); }}
+          onPair={() => { void onPair(); }}
+          onUseLocal={() => { void onUseLocal(); }}
+          onSyncOnce={() => { void onSyncOnce(); }}
+          onOpenData={() => { void onOpenData(); }}
+          onBase={setBase}
+          onToken={setToken}
+          onLocalSync={setLocalSync}
+        />
       )}
     </div>
   );

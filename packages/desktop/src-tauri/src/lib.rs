@@ -289,6 +289,29 @@ fn write_transcript(app: tauri::AppHandle, body: String) -> Result<(), String> {
     std::fs::write(dir.join("transcript-self.json"), body).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn use_local_sync(_app: tauri::AppHandle) -> Result<(), String> {
+    if port_up(8790) {
+        return Ok(());
+    }
+    let Some(bin) = find_tool("memrelay-sync") else {
+        return Err("分身暂时没连上".into());
+    };
+    spawn_detached(&bin, &["--host", "127.0.0.1", "--port", "8790"], &[])
+}
+
+#[tauri::command]
+fn open_data_dir(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|_| "没有打开数据目录".to_string())?;
+    let vault = dir.join("vault");
+    std::fs::create_dir_all(&vault).map_err(|_| "没有打开数据目录".to_string())?;
+    std::process::Command::new("/usr/bin/open")
+        .arg(&vault)
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| "没有打开数据目录".to_string())
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -329,7 +352,15 @@ fn install_tray(app: &tauri::AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![shell_config, model_status, save_model, read_transcript, write_transcript])
+        .invoke_handler(tauri::generate_handler![
+            shell_config,
+            model_status,
+            save_model,
+            read_transcript,
+            write_transcript,
+            use_local_sync,
+            open_data_dir
+        ])
         .setup(|app| {
             let ready = install_tray(app.handle()).is_ok();
             app.manage(TrayReady(ready));
