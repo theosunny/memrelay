@@ -102,8 +102,36 @@ async def test_audit_log(vault):
     assert recs[-2]["hits"] == ["facts/sh.md"] and recs[-1]["refused"] is True
 
 
+async def test_answer_uses_face_ceiling(vault):
+    """work face must not see private-only notes."""
+    from memrelay.faces import Face, ensure_default_faces, save_face
+
+    ensure_default_faces(vault)
+    save_face(vault, Face(id="work", name="工作", kind="expression",
+                          visibility_ceiling="work", capabilities=["answer"]))
+    put(vault, "preferences/secret.md", title="secret pref", type="preference",
+        body="我只私下喜欢抹茶", visibility="private")
+    res = await answer_as_me("我喜欢什么？", vault=vault, backend=LocalBackend(vault), face_id="work")
+    assert res["face_id"] == "work"
+    if res["citations"]:
+        assert all("secret" not in c["id"] for c in res["citations"])
+
+
+async def test_face_without_answer_is_refused(vault):
+    from memrelay.faces import Face, ensure_default_faces, save_face
+
+    ensure_default_faces(vault)
+    save_face(vault, Face(id="mute", name="静", kind="expression",
+                          visibility_ceiling="private", capabilities=["draft"]))
+    res = await answer_as_me("你好", vault=vault, backend=LocalBackend(vault), face_id="mute")
+    assert res["refused"] and res["face_id"] == "mute" and res["citations"] == []
+
+
 async def test_gateway_tools_no_send(cfg, vault):
+    from memrelay.faces import ensure_default_faces
+
     seed(vault)
+    ensure_default_faces(vault)
     async with Client(build_server(cfg, backend=LocalBackend(vault))) as c:
         names = sorted(t.name for t in await c.list_tools())
         assert names == sorted(TOOL_WHITELIST)
@@ -112,7 +140,9 @@ async def test_gateway_tools_no_send(cfg, vault):
         def data(r):
             return r.data if r.data is not None else json.loads(r.content[0].text)
         a = data(await c.call_tool("answer_as_me", {"question": "我常住哪个城市？", "as_of": "2023-01-01"}))
-        assert "北京" in a["answer"] and a["disclosure"]
+        assert "北京" in a["answer"] and a["disclosure"] and a.get("face_id") is None
+        faced = data(await c.call_tool("answer_as_me", {"question": "我常住哪个城市？", "face": "self"}))
+        assert faced["face_id"] == "self" and "上海" in faced["answer"]
         assert "error" in data(await c.call_tool("answer_as_me", {"question": "x", "as_of": "bad"}))
         d = data(await c.call_tool("draft_as_me", {"context": "回复：包管理器"}))
         assert d["can_send"] is False

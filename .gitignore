@@ -7,3 +7,6 @@ dist/
 build/
 *.egg-info/
 .coverage
+packages/desktop/src-tauri/resources/memrelay
+packages/desktop/src-tauri/resources/memrelay-sync
+packages/desktop/sidecar/*.spec

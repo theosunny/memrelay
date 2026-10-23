@@ -1,0 +1,19 @@
+FROM node:22-alpine AS mobile
+WORKDIR /src
+COPY packages/website/urls.json /src/packages/website/urls.json
+COPY packages/mobile/package.json packages/mobile/package-lock.json /src/packages/mobile/
+WORKDIR /src/packages/mobile
+RUN npm ci
+COPY packages/mobile /src/packages/mobile
+RUN npm run build
+
+FROM node:22-alpine AS site
+WORKDIR /src
+COPY packages/website /src
+RUN node build.mjs
+
+FROM nginx:1.27-alpine
+ENV PORT=8080
+COPY docker/website-nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=site /src/dist /usr/share/nginx/html
+COPY --from=mobile /src/packages/mobile/dist /usr/share/nginx/html/m

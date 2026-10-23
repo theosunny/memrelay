@@ -1,0 +1,137 @@
+# Notarized macOS disk image and app zip. The credential step exits 1
+# before any build when a required Apple secret is empty. Do not pass an
+# empty APPLE_SIGNING_IDENTITY: it would override the null signingIdentity.
+name: release-macos
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require Apple credentials
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          required=(
+            APPLE_CERTIFICATE
+            APPLE_CERTIFICATE_PASSWORD
+            APPLE_SIGNING_IDENTITY
+            APPLE_PROVIDER_SHORT_NAME
+            APPLE_TEAM_ID
+            APPLE_ID
+            APPLE_APP_SPECIFIC_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            if [ -z "${!name}" ]; then
+              echo "missing Apple secret: $name" >&2
+              exit 1
+            fi
+          done
+      - name: Import the Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/app.keychain"
+          security default-keychain -s "$RUNNER_TEMP/app.keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/app.keychain"
+          security set-keychain-settings -lut 21600 "$RUNNER_TEMP/app.keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$RUNNER_TEMP/app.keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$RUNNER_TEMP/app.keychain"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Freeze memrelay and memrelay-sync
+        run: packages/desktop/sidecar/build-macos.sh
+      - name: Sign the sidecars
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          codesign --force --options runtime --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            packages/desktop/src-tauri/resources/memrelay \
+            packages/desktop/src-tauri/resources/memrelay-sync
+      - name: Build the signed app and dmg
+        working-directory: packages/desktop
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_PROVIDER_SHORT_NAME: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
+          VITE_DISTRIBUTION: notarized
+        run: |
+          npm ci
+          npm run tauri build
+      - name: Copy ASCII release filenames
+        working-directory: packages/desktop
+        run: |
+          version=$(node -p "require('./package.json').version")
+          dmg="src-tauri/target/release/bundle/dmg/MemRelay-${version}-aarch64.dmg"
+          src=$(find src-tauri/target/release/bundle/dmg -name '*.dmg' ! -name 'MemRelay-*' -print -quit)
+          test -n "$src"
+          cp "$src" "$dmg"
+          echo "MEMRELAY_VERSION=$version" >> "$GITHUB_ENV"
+          echo "MEMRELAY_DMG=packages/desktop/${dmg}" >> "$GITHUB_ENV"
+      - name: Notarize and staple
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --verify --strict --verbose=2 "packages/desktop/src-tauri/target/release/bundle/macos/忆桥分身.app"
+          xcrun notarytool submit "$MEMRELAY_DMG" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$MEMRELAY_DMG"
+          xcrun stapler validate "$MEMRELAY_DMG"
+          xcrun stapler staple "packages/desktop/src-tauri/target/release/bundle/macos/忆桥分身.app"
+          xcrun stapler validate "packages/desktop/src-tauri/target/release/bundle/macos/忆桥分身.app"
+      - name: Zip the stapled app
+        working-directory: packages/desktop
+        run: |
+          zip="src-tauri/target/release/bundle/macos/MemRelay-${MEMRELAY_VERSION}-macos.zip"
+          ditto -c -k --keepParent \
+            "src-tauri/target/release/bundle/macos/忆桥分身.app" \
+            "$zip"
+          echo "MEMRELAY_ZIP=packages/desktop/${zip}" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-notarized
+          path: |
+            ${{ env.MEMRELAY_DMG }}
+            ${{ env.MEMRELAY_ZIP }}
+          if-no-files-found: error
+      - name: Attach to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: false
+          body: |
+            Notarized macOS build of 忆桥分身.
+            Double-click the disk image to install.
+            Assets: MemRelay-${{ env.MEMRELAY_VERSION }}-aarch64.dmg and MemRelay-${{ env.MEMRELAY_VERSION }}-macos.zip.
+          files: |
+            ${{ env.MEMRELAY_DMG }}
+            ${{ env.MEMRELAY_ZIP }}

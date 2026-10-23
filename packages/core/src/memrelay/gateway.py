@@ -194,9 +194,10 @@ def build_server(cfg: Config | None = None, backend: SearchBackend | None = None
         return {k: v for k, v in out.items() if v is not None}
 
     @mcp.tool
-    async def answer_as_me(question: str, as_of: str | None = None) -> dict:
+    async def answer_as_me(question: str, as_of: str | None = None, face: str | None = None) -> dict:
         """Answer as the user would, from reviewed memories only. Returns answer, citations,
-        confidence (0-1) and an AI-twin disclosure. Says "I don't know" when memories don't cover it."""
+        confidence (0-1) and an AI-twin disclosure. Says "I don't know" when memories don't cover it.
+        Optional face id uses that face's visibility ceiling instead of the config default."""
         from .llm import get_llm
         from .twin import answer_as_me as _answer
 
@@ -205,7 +206,7 @@ def build_server(cfg: Config | None = None, backend: SearchBackend | None = None
         except ValueError:
             return {"error": "as_of must be YYYY-MM-DD"}
         return await _answer(question[:2000], vault=vault, backend=backend, llm=get_llm(cfg), as_of=when,
-                             ceiling=cfg.twin_visibility)
+                             ceiling=cfg.twin_visibility, face_id=face or None)
 
     @mcp.tool
     async def draft_as_me(context: str, channel: str = "work") -> dict:

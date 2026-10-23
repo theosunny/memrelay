@@ -1,0 +1,9 @@
+{
+  "website": "https://memrelay-web.preview.tencent-zeabur.cn",
+  "sync": "https://memrelay-sync.preview.tencent-zeabur.cn",
+  "github": "https://github.com/theosunny/memrelay",
+  "releases": "https://github.com/theosunny/memrelay/releases/latest",
+  "spec": "https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md",
+  "license": "https://github.com/theosunny/memrelay/blob/main/LICENSE",
+  "configure": "Zeabur shared cluster pauses 2026-12-01 and stops 2026-12-31"
+}

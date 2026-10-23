@@ -41,7 +41,7 @@
 **Interfaces:**
 - Produces: `generate_vault_key() -> bytes`, `encrypt_blob(key, plaintext: bytes) -> bytes`, `decrypt_blob(key, blob: bytes) -> bytes`
 
-- [ ] **Step 1: Write failing roundtrip test**
+- [x] **Step 1: Write failing roundtrip test**
 
 ```python
 from memrelay.sync_crypto import generate_vault_key, encrypt_blob, decrypt_blob
@@ -54,11 +54,11 @@ def test_encrypt_roundtrip():
     assert decrypt_blob(key, blob) == pt
 ```
 
-- [ ] **Step 2: Run — expect fail**
+- [x] **Step 2: Run — expect fail**
 
-- [ ] **Step 3: Implement with `cryptography.Fernet` or `nacl.secret`** (add dependency explicitly in `packages/core/pyproject.toml`)
+- [x] **Step 3: Implement with `cryptography.Fernet` or `nacl.secret`** (add dependency explicitly in `packages/core/pyproject.toml`)
 
-- [ ] **Step 4: Tests pass + commit**
+- [x] **Step 4: Tests pass + commit**
 
 ```bash
 git commit -s -m "feat(sync): E2E blob crypto helpers"
@@ -81,7 +81,7 @@ git commit -s -m "feat(sync): E2E blob crypto helpers"
 
 Server stores opaque bytes only.
 
-- [ ] **Step 1–5:** TDD list/put/get; commit `feat(sync): zero-knowledge blob server MVP`
+- [x] **Step 1–5:** TDD list/put/get; commit `feat(sync): zero-knowledge blob server MVP`
 
 ---
 
@@ -92,9 +92,9 @@ Server stores opaque bytes only.
 - Modify: desktop Settings → “同步：配对码”
 - CLI: `memrelay sync push` / `memrelay sync pull`
 
-- [ ] Push changed files since last cursor; pull remote; on hash conflict write `.memrelay/conflicts/<path>.md` and surface in 动态.
+- [x] Push changed files since last cursor; pull remote; on hash conflict write `.memrelay/conflicts/<path>.md` and surface in 动态.
 
-- [ ] Commit `feat(sync): desktop push/pull client`
+- [x] Commit `feat(sync): desktop push/pull client`
 
 ---
 
@@ -107,17 +107,17 @@ Server stores opaque bytes only.
 **Mobile answering strategy (v1 decision locked here):**  
 Ship **on-device engine** if Python mobile is too heavy; otherwise mobile only **browses decrypted files** and **asks** through a user-approved relay to the desktop shell-api while desktop is online. Default for v1: **relay ask to paired desktop** when online; offline browse-only.
 
-- [ ] Implement relay ask: mobile → sync server message queue → desktop worker → answer → response queue (ciphertext).  
-- [ ] Commit `feat(mobile): ask+browse via paired desktop relay`
+- [x] Implement relay ask: mobile → sync server message queue → desktop worker → answer → response queue (ciphertext).  
+- [x] Commit `feat(mobile): ask+browse via paired desktop relay`
 
 ---
 
 ### Task 5: Phase 2 verification
 
-- [ ] Two devices: desktop edits preference → phone sees it after pull.  
-- [ ] Phone ask returns disclosure + citations while desktop online.  
-- [ ] Server disk contains no plaintext Chinese memory body (spot-check).  
-- [ ] `uv run pytest packages/core/tests packages/sync/tests -q` green.
+- [x] Two devices: desktop edits preference → phone sees it after pull.  
+- [x] Phone ask returns disclosure + citations while desktop online.  
+- [x] Server disk contains no plaintext Chinese memory body (spot-check).  
+- [x] `uv run pytest packages/core/tests packages/sync/tests -q` green.
 
 ---
 

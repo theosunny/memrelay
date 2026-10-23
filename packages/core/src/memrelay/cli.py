@@ -6,6 +6,7 @@ import datetime as dt
 import difflib
 import json
 import sys
+from pathlib import Path
 
 import typer
 
@@ -20,10 +21,12 @@ inbox_app = typer.Typer(help="Review proposed memories / 审核收件箱", no_ar
 connect_app = typer.Typer(help="Connect agents (write MCP configs) / 接入智能体", invoke_without_command=True)
 capture_app = typer.Typer(help="Capture local agent history / 采集本地历史", no_args_is_help=True)
 profile_app = typer.Typer(help="Core profile / 核心画像", no_args_is_help=True)
+sync_app = typer.Typer(help="E2E sync / 端到端同步", no_args_is_help=True)
 app.add_typer(inbox_app, name="inbox")
 app.add_typer(connect_app, name="connect")
 app.add_typer(capture_app, name="capture")
 app.add_typer(profile_app, name="profile")
+app.add_typer(sync_app, name="sync")
 
 
 def _ctx() -> tuple[Config, Vault, Inbox]:
@@ -56,6 +59,67 @@ def serve() -> None:
     from .gateway import build_server
 
     build_server(Config.load()).run(show_banner=False)
+
+
+@app.command("shell-api")
+def shell_api_cmd(
+    port: int = typer.Option(8787, "--port"),
+    token_file: Path | None = typer.Option(None, "--token-file"),
+) -> None:
+    """Local JSON API for the desktop/mobile shell (127.0.0.1 only)."""
+    from .shell_api import serve_shell_api
+
+    serve_shell_api(port=port, token_file=token_file)
+
+
+@app.command("configure-model")
+def configure_model_cmd(
+    home: Path = typer.Option(..., "--home"),
+    provider: str = typer.Option(..., "--provider"),
+    model: str = typer.Option("", "--model"),
+) -> None:
+    """Write persona provider into MEMRELAY_HOME. The API key is not accepted here."""
+    from .setup_model import main_json
+
+    main_json(home, provider, model)
+
+
+@sync_app.command("pair")
+def sync_pair(server: str = typer.Option("http://127.0.0.1:8790", "--server")) -> None:
+    """Show a pairing code for a phone. The key stays on this machine."""
+    from .sync_client import pair_desktop
+
+    _cfg, vault, _inbox = _ctx()
+    info = pair_desktop(vault, server)
+    typer.echo(f"配对码: {info['pair_code']}")
+    typer.echo(info["pairing"])
+
+
+@sync_app.command("push")
+def sync_push() -> None:
+    """Upload changed vault files as ciphertext."""
+    from .sync_client import push
+
+    _cfg, vault, _inbox = _ctx()
+    typer.echo(json.dumps(push(vault), ensure_ascii=False))
+
+
+@sync_app.command("pull")
+def sync_pull() -> None:
+    """Download ciphertext and apply it. Conflicts land in .memrelay/conflicts/."""
+    from .sync_client import pull
+
+    _cfg, vault, _inbox = _ctx()
+    typer.echo(json.dumps(pull(vault), ensure_ascii=False))
+
+
+@sync_app.command("relay")
+def sync_relay() -> None:
+    """Answer phone questions while this desktop is online."""
+    from .sync_client import relay_forever
+
+    _cfg, vault, _inbox = _ctx()
+    relay_forever(vault)
 
 
 @app.command()
