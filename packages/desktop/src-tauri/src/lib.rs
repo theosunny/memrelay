@@ -1,4 +1,5 @@
 mod model;
+use model::KeyStore;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -68,36 +69,100 @@ fn find_tool(name: &str) -> Option<PathBuf> {
     paths.into_iter().find(|p| p.is_file())
 }
 
-fn spawn_detached(bin: &std::path::Path, args: &[&str]) -> Result<(), String> {
-    std::process::Command::new(bin)
-        .args(args)
+pub struct StartupPlan {
+    pub shell: bool,
+    pub sync: bool,
+}
+
+pub fn startup_plan(local_sync_requested: bool) -> StartupPlan {
+    StartupPlan { shell: true, sync: local_sync_requested }
+}
+
+fn spawn_detached(bin: &std::path::Path, args: &[&str], env: &[(&str, &str)]) -> Result<(), String> {
+    let mut cmd = std::process::Command::new(bin);
+    cmd.args(args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .map(|_| ())
-        .map_err(|_| "本机服务没有启动".to_string())
+        .stderr(std::process::Stdio::null());
+    for (key, value) in env {
+        cmd.env(key, value);
+    }
+    cmd.spawn().map(|_| ()).map_err(|_| "分身暂时没连上".to_string())
 }
 
-fn ensure_sync() {
-    if port_up(8790) {
-        return;
+fn saved_model(app_data: &std::path::Path) -> Option<serde_json::Value> {
+    let text = std::fs::read_to_string(app_data.join("model.json")).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+fn child_env(app_data: &std::path::Path) -> Vec<(String, String)> {
+    let mut env = vec![("MEMRELAY_HOME".into(), app_data.to_string_lossy().to_string())];
+    let Some(parsed) = saved_model(app_data) else {
+        return env;
+    };
+    let name = parsed.get("api_key_env").and_then(|v| v.as_str()).unwrap_or("");
+    if name.is_empty() {
+        return env;
     }
-    // shortcut: loopback only. LAN needs `memrelay-sync --host 0.0.0.0` after quitting, or this process keeps 8790.
-    if let Some(bin) = find_tool("memrelay-sync") {
-        let _ = spawn_detached(&bin, &["--host", "127.0.0.1", "--port", "8790"]);
+    if let Some(secret) = model::KeyringStore.get() {
+        if !secret.trim().is_empty() {
+            env.push((name.to_string(), secret));
+        }
+    }
+    env
+}
+
+fn init_vault(app_data: &std::path::Path, bin: &std::path::Path) -> Result<(), String> {
+    let Some(parsed) = saved_model(app_data) else {
+        return Ok(());
+    };
+    let provider = parsed.get("provider").and_then(|v| v.as_str()).unwrap_or("");
+    if provider.is_empty() {
+        return Err("分身暂时没连上".into());
+    }
+    let model_name = parsed.get("model").and_then(|v| v.as_str()).unwrap_or("");
+    let home = app_data.to_string_lossy().to_string();
+    let output = std::process::Command::new(bin)
+        .args(["configure-model", "--home", &home, "--provider", provider, "--model", model_name])
+        .env("MEMRELAY_HOME", &home)
+        .output()
+        .map_err(|_| "分身暂时没连上".to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err("分身暂时没连上".into())
     }
 }
 
-fn ensure_shell(token_file: &std::path::Path) -> Result<String, String> {
+fn tighten_token(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if path.is_file() {
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+    }
+}
+
+fn ensure_shell(app_data: &std::path::Path, token_file: &std::path::Path) -> Result<String, String> {
     if let Some(parent) = token_file.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(parent).map_err(|_| "分身暂时没连上".to_string())?;
+    }
+    let Some(bin) = find_tool("memrelay") else {
+        return Err("分身暂时没连上".into());
+    };
+    if app_data.join("model.json").is_file() && !app_data.join("vault").is_dir() {
+        init_vault(app_data, &bin)?;
     }
     if !api_up() {
-        let Some(bin) = find_tool("memrelay") else {
-            return Err("还没找到本机程序。安装后它在 ~/.local/bin/memrelay，从访达打开时也会到那里找。".into());
-        };
-        spawn_detached(&bin, &["shell-api", "--port", "8787", "--token-file", &token_file.to_string_lossy()])?;
+        let env = child_env(app_data);
+        let pairs: Vec<(&str, &str)> = env.iter().map(|(key, value)| (key.as_str(), value.as_str())).collect();
+        let token_arg = token_file.to_string_lossy().to_string();
+        spawn_detached(
+            &bin,
+            &["shell-api", "--port", "8787", "--token-file", &token_arg],
+            &pairs,
+        )?;
         for _ in 0..40 {
             if api_up() {
                 break;
@@ -106,13 +171,20 @@ fn ensure_shell(token_file: &std::path::Path) -> Result<String, String> {
         }
     }
     if !api_up() {
-        return Err("本机服务没有启动".into());
+        return Err("分身暂时没连上".into());
     }
     // shortcut: a process already bound to 8787 is reused, even if it is not ours; pick a free port if that collides
-    Ok(std::fs::read_to_string(token_file)
-        .unwrap_or_default()
-        .trim()
-        .to_string())
+    tighten_token(token_file);
+    Ok(std::fs::read_to_string(token_file).unwrap_or_default().trim().to_string())
+}
+
+fn shell_down() -> ShellConfig {
+    ShellConfig {
+        base: BASE.into(),
+        token: String::new(),
+        ready: false,
+        detail: "分身暂时没连上".into(),
+    }
 }
 
 #[tauri::command]
@@ -138,19 +210,22 @@ fn save_model(app: tauri::AppHandle, provider: String, api_key: String, model: S
 
 #[tauri::command]
 fn shell_config(app: tauri::AppHandle) -> ShellConfig {
-    ensure_sync();
-    let token_file: PathBuf = match app.path().app_data_dir() {
-        Ok(dir) => dir.join("shell-api.token"),
-        Err(_) => {
-            return ShellConfig {
-                base: BASE.into(),
-                token: String::new(),
-                ready: false,
-                detail: "本机服务没有启动".into(),
-            };
-        }
+    let plan = startup_plan(false);
+    if !plan.shell {
+        return shell_down();
+    }
+    if plan.sync {
+        // Local sync starts only after the user chooses 使用本机.
+    }
+    let app_data = match app.path().app_data_dir() {
+        Ok(dir) => dir,
+        Err(_) => return shell_down(),
     };
-    match ensure_shell(&token_file) {
+    if !model::read_status(&app_data, &model::KeyringStore).configured {
+        return shell_down();
+    }
+    let token_file: PathBuf = app_data.join("shell-api.token");
+    match ensure_shell(&app_data, &token_file) {
         Ok(token) => ShellConfig {
             base: BASE.into(),
             token: token.clone(),
@@ -231,8 +306,15 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::tool_candidates;
+    use super::{startup_plan, tool_candidates};
     use std::path::Path;
+
+    #[test]
+    fn consumer_startup_does_not_launch_sync() {
+        let plan = startup_plan(false);
+        assert!(plan.shell);
+        assert!(!plan.sync);
+    }
 
     #[test]
     fn candidates_check_env_then_app_then_user_bin() {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import QRCode from "qrcode";
 import urls from "../../website/urls.json";
@@ -53,7 +53,6 @@ export default function App() {
   const [syncMsg, setSyncMsg] = useState("");
   const [gate, setGate] = useState<Gate>("loading");
   const [gateError, setGateError] = useState("");
-  const skipSettings = useRef(false);
 
   useEffect(() => {
     if (!pairing) { setQr(""); return; }
@@ -105,8 +104,6 @@ export default function App() {
       if (gone) return;
       setBase(localStorage.getItem("shellBase") || base);
       setToken(localStorage.getItem("shellToken") || "");
-      if (!cfg.ready && !skipSettings.current) setSettings(true);
-      skipSettings.current = false;
       setStatus(cfg.detail);
       if (localStorage.getItem("shellToken")) await refresh("twin");
       else setStatus(cfg.detail || "需要填写令牌");
@@ -131,7 +128,6 @@ export default function App() {
       setGateError(input.apiKey && text.includes(input.apiKey) ? "没有保存" : text);
       return;
     }
-    skipSettings.current = true;
     setGate("ready");
   }
 
