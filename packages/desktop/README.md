@@ -1,7 +1,7 @@
 # 忆桥分身桌面壳 / MemRelay desktop shell
 
 **Status:** Tray app with three home screens: 分身 / 记忆 / 动态.
-The window talks only to the local shell API. 设置 also pairs a phone and runs one sync against `memrelay-sync` (default `http://127.0.0.1:8790`). The phone app is `packages/mobile`.
+The window talks only to the local shell API. 设置 also pairs a phone and runs one sync against `memrelay-sync`. The 同步服务 field starts at the official URL in `packages/website/urls.json` (`https://memrelay-sync.zeabur.app`, **CONFIGURE AFTER DEPLOY**). 使用本机 fills `http://127.0.0.1:8790`, which is what the app starts when that port is free. The phone app is `packages/mobile`.
 
 ## What you need
 

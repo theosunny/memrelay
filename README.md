@@ -2,7 +2,10 @@
 
 [![ci](https://github.com/theosunny/memrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/theosunny/memrelay/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-memrelay.zeabur.app-c4552a)](https://memrelay.zeabur.app)
 [中文](README.zh-CN.md)
+
+> 官网 **CONFIGURE AFTER DEPLOY**. `https://memrelay.zeabur.app` is a placeholder until Zeabur assigns the real host. Deploy steps: [packages/sync/ZEABUR.md](packages/sync/ZEABUR.md).
 
 **One memory for all your AI agents — and, over time, your digital twin.**
 
@@ -115,6 +118,23 @@ uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages
 ```
 
 Signing and the LAN sync warning: [packages/desktop/README.md](packages/desktop/README.md).
+
+## Download
+
+官网: [https://memrelay.zeabur.app](https://memrelay.zeabur.app) (**CONFIGURE AFTER DEPLOY**).
+
+**macOS.** The site's download button points at [GitHub Releases latest](https://github.com/theosunny/memrelay/releases/latest). Until a `.dmg` or `.app.zip` is attached, that button says 即将发布. Build on a Mac from `packages/desktop`:
+
+```bash
+npm install
+npm run tauri build
+```
+
+Unsigned outputs: `src-tauri/target/release/bundle/macos/忆桥分身.app` and `src-tauri/target/release/bundle/dmg/`. Right-click the app the first time. Install the two CLIs above so Finder can find them. Pushing a `v*` tag runs `.github/workflows/release-macos.yml` and attaches the unsigned artifacts to the Release. No Apple certificate required.
+
+**Phone.** After the site is deployed, open `https://memrelay.zeabur.app/m/` and add it to the home screen. Native shells live in `packages/mobile`.
+
+**Sync.** Desktop and phone settings have a 同步服务 field. Official placeholder: `https://memrelay-sync.zeabur.app` (**CONFIGURE AFTER DEPLOY**). Empty means `http://127.0.0.1:8790`. Change the address, then generate a new pairing code on the desktop. The vault key stays on the device; the server stores ciphertext only. Self-host notes: [packages/sync/ZEABUR.md](packages/sync/ZEABUR.md).
 
 **In mainland China:** Basic Memory downloads a small embedding model from Hugging Face on
 first use. MemRelay checks whether `huggingface.co` is reachable and, if not, points

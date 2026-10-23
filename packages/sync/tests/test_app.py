@@ -85,3 +85,36 @@ def test_pair_start_rate_limit(tmp_path):
     for _ in range(20):
         assert client.post("/pair/start", json={}).status_code == 200
     assert client.post("/pair/start", json={}).status_code == 429
+
+
+def test_pair_lockout_survives_restart(tmp_path):
+    root = tmp_path / "store"
+    bad = {"pair_code": "AAAAAAAA", "device_pubkey": "x"}
+    first = TestClient(build_app(root))
+    assert first.post("/pair/finish", json=bad).status_code == 404
+    for _ in range(7):
+        first.post("/pair/finish", json=bad)
+    again = TestClient(build_app(root))
+    assert again.post("/pair/finish", json=bad).status_code == 429
+
+
+def test_trusted_proxy_splits_clients(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMRELAY_TRUST_PROXY", "1")
+    client = TestClient(build_app(tmp_path / "store"))
+    bad = {"pair_code": "AAAAAAAA", "device_pubkey": "x"}
+    for _ in range(8):
+        assert client.post("/pair/finish", json=bad, headers={"X-Forwarded-For": "203.0.113.4"}).status_code in (404, 429)
+    assert client.post("/pair/finish", json=bad, headers={"X-Forwarded-For": "203.0.113.4"}).status_code == 429
+    assert client.post("/pair/finish", json=bad, headers={"X-Forwarded-For": "203.0.113.9"}).status_code == 404
+
+
+def test_port_env_binds_public_interface(monkeypatch):
+    from memrelay_sync.app import data_dir_from_env, service_bind
+
+    monkeypatch.delenv("PORT", raising=False)
+    assert service_bind() == ("127.0.0.1", 8790)
+    monkeypatch.setenv("PORT", "4321")
+    assert service_bind() == ("0.0.0.0", 4321)
+    assert service_bind("127.0.0.1", 9) == ("127.0.0.1", 9)
+    monkeypatch.setenv("MEMRELAY_SYNC_DATA", "/data")
+    assert str(data_dir_from_env()) == "/data"

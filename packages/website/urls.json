@@ -1,0 +1,9 @@
+{
+  "website": "https://memrelay.zeabur.app",
+  "sync": "https://memrelay-sync.zeabur.app",
+  "github": "https://github.com/theosunny/memrelay",
+  "releases": "https://github.com/theosunny/memrelay/releases/latest",
+  "spec": "https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md",
+  "license": "https://github.com/theosunny/memrelay/blob/main/LICENSE",
+  "configure": "CONFIGURE AFTER DEPLOY"
+}

@@ -108,6 +108,8 @@ textarea { min-height: 7rem; resize: vertical; }
 
 .dialog form {
   width: min(440px, 100%);
+  max-height: min(640px, 100%);
+  overflow: auto;
   background: #f3efe6;
   border-radius: 16px;
   padding: 1rem 1.1rem 1.2rem;

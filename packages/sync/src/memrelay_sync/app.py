@@ -48,10 +48,10 @@ class Store:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        # shortcut: counters are per process, a restart clears a lockout
         self._fails: dict[str, list[float]] = {}
         self._locked_until: dict[str, float] = {}
         self._starts: dict[str, list[float]] = {}
+        self._load_limits()
 
     def allow_start(self, ip: str) -> bool:
         now = time.time()
@@ -62,6 +62,7 @@ class Store:
                 return False
             hits.append(now)
             self._starts[ip] = hits
+            self._save_limits()
             return True
 
     def allow_finish(self, ip: str) -> bool:
@@ -73,6 +74,7 @@ class Store:
             if ok:
                 self._fails.pop(ip, None)
                 self._locked_until.pop(ip, None)
+                self._save_limits()
                 return
             now = time.time()
             hits = [t for t in self._fails.get(ip, []) if now - t < _PAIR_TTL]
@@ -80,6 +82,32 @@ class Store:
             self._fails[ip] = hits
             if len(hits) >= _FAILS:
                 self._locked_until[ip] = now + _PAIR_TTL
+            self._save_limits()
+
+    def _load_limits(self) -> None:
+        path = self.root / "limits.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return
+            fails, starts, locked = data.get("fails") or {}, data.get("starts") or {}, data.get("locked") or {}
+            if not isinstance(fails, dict) or not isinstance(starts, dict) or not isinstance(locked, dict):
+                return
+            self._fails = fails
+            self._starts = starts
+            self._locked_until = {str(k): float(v) for k, v in locked.items()}
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return
+
+    def _save_limits(self) -> None:
+        now = time.time()
+        self._locked_until = {k: v for k, v in self._locked_until.items() if v > now}
+        path = self.root / "limits.json"
+        path.write_text(json.dumps({
+            "fails": self._fails,
+            "locked": self._locked_until,
+            "starts": self._starts,
+        }), encoding="utf-8")
 
     def start_pair(self, vault_id: str | None) -> dict:
         vault_id = (vault_id or secrets.token_hex(16)).lower()
@@ -204,7 +232,11 @@ def build_app(root: Path) -> Starlette:
         return header[7:] if header[:7].lower() == "bearer " else ""
 
     def _ip(request: Request) -> str:
-        # shortcut: one bucket per TCP peer; a reverse proxy would share that bucket
+        # MEMRELAY_TRUST_PROXY=1 uses the first X-Forwarded-For hop. Set it only behind Zeabur.
+        if os.environ.get("MEMRELAY_TRUST_PROXY") == "1":
+            forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+            if forwarded:
+                return forwarded[:80]
         return request.client.host if request.client else "-"
 
     def _auth(request: Request, vault_id: str) -> Response | None:
@@ -362,16 +394,41 @@ def build_app(root: Path) -> Starlette:
     )
 
 
+def service_bind(host: str | None = None, port: int | None = None) -> tuple[str, int]:
+    """PORT set (Zeabur) listens on 0.0.0.0. A laptop without PORT stays on loopback."""
+    env_port = os.environ.get("PORT")
+    chosen_port = port if port is not None else int(env_port or "8790")
+    if host is not None:
+        chosen_host = host
+    else:
+        chosen_host = "0.0.0.0" if env_port else "127.0.0.1"
+    return chosen_host, chosen_port
+
+
+def data_dir_from_env(explicit: str | None = None) -> Path:
+    return Path(
+        explicit
+        or os.environ.get("MEMRELAY_SYNC_DATA")
+        or os.environ.get("MEMRELAY_SYNC_DIR")
+        or Path.home() / ".memrelay-sync"
+    )
+
+
 def main() -> None:
     import argparse
 
     import uvicorn
 
+    env_port = os.environ.get("PORT")
     parser = argparse.ArgumentParser(description="MemRelay ciphertext sync server")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8790)
+    parser.add_argument("--host", default="0.0.0.0" if env_port else "127.0.0.1")
+    parser.add_argument("--port", type=int, default=int(env_port or "8790"))
     parser.add_argument("--data", default=None)
     args = parser.parse_args()
-    # shortcut: loopback by default. --host 0.0.0.0 is for a LAN phone only; public internet still needs TLS and a login stronger than an 8-character code
-    root = Path(args.data or os.environ.get("MEMRELAY_SYNC_DIR") or Path.home() / ".memrelay-sync")
-    uvicorn.run(build_app(root), host=args.host, port=args.port, log_level="warning")
+    # TLS is terminated by Zeabur when this process is behind it. Do not publish the raw port.
+    uvicorn.run(
+        build_app(data_dir_from_env(args.data)),
+        host=args.host,
+        port=args.port,
+        log_level="warning",
+    )

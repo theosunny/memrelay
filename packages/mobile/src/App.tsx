@@ -1,6 +1,15 @@
 // shortcut: screens stay in this package; extract packages/shell-ui when a third client needs them
 import { useState, type FormEvent } from "react";
+import urls from "../../website/urls.json";
 import { askDesktop, join, loadFiles, loadSession, pullFiles, type Answer } from "./sync";
+
+const LOCAL_SYNC = "http://127.0.0.1:8790";
+
+function initialServer(): string {
+  const saved = localStorage.getItem("mobileSync");
+  if (saved !== null) return saved.trim() || LOCAL_SYNC;
+  return loadSession()?.server || urls.sync;
+}
 
 type Face = { id: string; name: string };
 
@@ -29,7 +38,7 @@ function memoriesOf(files: Record<string, string>) {
 export default function App() {
   const [tab, setTab] = useState<"twin" | "memory">("twin");
   const [settings, setSettings] = useState(!loadSession());
-  const [server, setServer] = useState(loadSession()?.server || "http://127.0.0.1:8790");
+  const [server, setServer] = useState(initialServer);
   const [pairing, setPairing] = useState("");
   const [files, setFiles] = useState(loadFiles());
   const [faceId, setFaceId] = useState("self");
@@ -42,8 +51,11 @@ export default function App() {
   async function pair(event: FormEvent) {
     event.preventDefault();
     setError("");
+    const base = server.trim() || LOCAL_SYNC;
+    setServer(base);
+    localStorage.setItem("mobileSync", base);
     try {
-      await join(server, pairing);
+      await join(base, pairing);
       setSettings(false);
       setFiles(await pullFiles(loadSession()!));
     } catch (ex) {
@@ -142,7 +154,8 @@ export default function App() {
             <h2 id="settings-title">配对</h2>
             <p className="meta">用相机扫描电脑上的二维码，或把配对内容粘贴到这里。电脑在线时才能提问；不在线时仍可看已经同步的记忆。</p>
             <label htmlFor="server">同步服务</label>
-            <input id="server" value={server} onChange={(e) => setServer(e.target.value)} autoComplete="off" />
+            <input id="server" value={server} onChange={(e) => { setServer(e.target.value); localStorage.setItem("mobileSync", e.target.value.trim()); }} autoComplete="off" />
+            <p className="meta">官方同步地址，部署后再生效。本机则填 http://127.0.0.1:8790。钥匙只留在设备上。</p>
             <label htmlFor="pairing">配对内容</label>
             <textarea id="pairing" value={pairing} onChange={(e) => setPairing(e.target.value)} />
             <div className="actions">

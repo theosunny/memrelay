@@ -1,0 +1,48 @@
+# Unsigned macOS .dmg and .app zip. Do not set APPLE_SIGNING_IDENTITY to an empty
+# string: an empty env var overrides the null signingIdentity in tauri.conf.json.
+name: release-macos
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build unsigned app and dmg
+        working-directory: packages/desktop
+        run: |
+          npm ci
+          npm run tauri build
+      - name: Zip the .app
+        working-directory: packages/desktop
+        run: |
+          ditto -c -k --keepParent \
+            "src-tauri/target/release/bundle/macos/忆桥分身.app" \
+            "src-tauri/target/release/bundle/macos/忆桥分身.app.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-unsigned
+          path: |
+            packages/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            packages/desktop/src-tauri/target/release/bundle/macos/*.zip
+          if-no-files-found: error
+      - name: Attach to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            packages/desktop/src-tauri/target/release/bundle/macos/忆桥分身.app.zip

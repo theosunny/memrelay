@@ -27,9 +27,9 @@ Deletes are not synced. `shortcut: no tombstones, add them when a deletion on on
 
 Later calls send `Authorization: Bearer <device_token>`. The server stores `sha256(token)`, not the token.
 
-`/pair/finish` allows 8 misses per client, then locks that client for 10 minutes. `/pair/start` allows 20 new codes per client per 10 minutes. Counters are in memory. `shortcut: one process, a restart clears the lockout.`
+`/pair/finish` allows 8 misses per client, then locks that client for 10 minutes. `/pair/start` allows 20 new codes per client per 10 minutes. The counters live in `limits.json` under the data dir, so a restart keeps the lockout.
 
-Bind `127.0.0.1` unless a phone on the same LAN must connect (`--host 0.0.0.0`). That is still not a public-internet deployment: there is no TLS, and the pair code is only 8 characters.
+Bind `127.0.0.1` unless `PORT` is set (Zeabur) or you pass `--host 0.0.0.0`. Public HTTPS is the Zeabur proxy, not this process. Set `MEMRELAY_TRUST_PROXY=1` only there, so the rate limit sees `X-Forwarded-For` instead of the proxy. The pair code is still only 8 characters.
 
 ## Blobs
 

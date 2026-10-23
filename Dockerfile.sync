@@ -1,0 +1,14 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY packages/sync /app/packages/sync
+RUN pip install --no-cache-dir /app/packages/sync
+
+ENV MEMRELAY_SYNC_DATA=/data
+ENV MEMRELAY_TRUST_PROXY=1
+ENV PORT=8080
+VOLUME /data
+EXPOSE 8080
+
+# Shell form so Zeabur's $PORT is expanded. TLS stops at the Zeabur proxy.
+CMD memrelay-sync --host 0.0.0.0 --port ${PORT:-8080} --data ${MEMRELAY_SYNC_DATA:-/data}

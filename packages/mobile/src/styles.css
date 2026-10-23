@@ -20,6 +20,6 @@ textarea { min-height: 6rem; }
 .meta, .disclosure { color: #5c564c; font-size: 0.85rem; }
 .error { color: #8a3b2c; }
 .dialog { position: fixed; inset: 0; background: rgba(28, 25, 21, 0.35); display: grid; place-items: center; padding: 1rem; }
-.dialog form { width: min(440px, 100%); background: #f3efe6; border-radius: 16px; padding: 1rem; }
+.dialog form { width: min(440px, 100%); max-height: min(640px, 100%); overflow: auto; background: #f3efe6; border-radius: 16px; padding: 1rem; }
 .actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.8rem; }
 pre { white-space: pre-wrap; }

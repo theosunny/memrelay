@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>忆桥 MemRelay</title>
+  <meta name="description" content="忆桥：个人数字分身、记忆整合、千面。钥匙留在设备上。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2314120e'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='18' fill='%23f4efe6' font-family='serif'%3E%E5%BF%86%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#download">到下载</a>
+  <header class="wrap mast">
+    <a class="mark" href="#top">忆桥</a>
+    <nav aria-label="页内">
+      <a href="#download">下载</a>
+      <a href="#sync">同步</a>
+      <a href="https://github.com/theosunny/memrelay">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top" class="wrap">
+    <section class="hero" aria-labelledby="title">
+      <p class="kicker">个人数字分身 · 记忆整合 · 千面</p>
+      <h1 id="title">忆桥</h1>
+      <p class="lead">一份记在你自己设备上的记忆。电脑上的分身可以问，手机上可以看。同一份记忆，换一张面。</p>
+      <p>同步出去的只有密文。打开笔记的钥匙不离开设备。</p>
+    </section>
+
+    <section id="download" aria-labelledby="download-title">
+      <h2 id="download-title">下载</h2>
+
+      <h3>macOS</h3>
+      <p id="mac-note" class="quiet">即将发布。安装包还没挂到 GitHub Releases 时，从源码构建。</p>
+      <p><a class="download" id="mac-download" href="https://github.com/theosunny/memrelay/releases/latest">即将发布</a></p>
+      <p class="quiet">在 Mac 上，进入仓库的 <code>packages/desktop</code>：</p>
+      <pre><code>npm install
+npm run tauri build</code></pre>
+      <p class="quiet">未签名的 <code>忆桥分身.app</code> 在 <code>src-tauri/target/release/bundle/macos/</code>，<code>.dmg</code> 在 <code>src-tauri/target/release/bundle/dmg/</code>。第一次请右键打开。从访达启动前先安装命令行程序：</p>
+      <pre><code>uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
+uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"</code></pre>
+
+      <h3>手机</h3>
+      <p>部署本站之后，用手机浏览器打开 <a href="/m/">/m/</a>。把它加到主屏幕即可当成分身入口。</p>
+      <p class="quiet">要打成 iOS / Android 安装包，用仓库里的 <code>packages/mobile</code>（需要 Xcode 或 Android Studio）。</p>
+      <p><a class="download" href="/m/">打开手机版</a></p>
+    </section>
+
+    <section id="sync" aria-labelledby="sync-title">
+      <h2 id="sync-title">同步</h2>
+      <p>桌面和手机填同一个同步服务地址。改地址之后，在电脑上重新生成配对码，再在手机里粘贴。</p>
+
+      <h3>官方同步</h3>
+      <p class="flag">CONFIGURE AFTER DEPLOY</p>
+      <p>地址 <code>https://memrelay-sync.zeabur.app</code></p>
+      <p class="quiet">这是占位域名。Zeabur 分配到真实地址后，改 <code>packages/website/urls.json</code>，桌面和手机下次构建会读到它。已经装好的应用不用重编：设置里的「同步服务」直接改成新地址。</p>
+
+      <h3>自建同步</h3>
+      <p>在你自己的机器上：</p>
+      <pre><code>memrelay-sync --host 0.0.0.0 --port 8790</code></pre>
+      <p>两端的同步服务填 <code>http://那台机器:8790</code>。这台进程没有 TLS，不要把 8790 暴露到公网。公网用官方同步的 HTTPS。</p>
+      <p>只在本机用时，填 <code>http://127.0.0.1:8790</code>。桌面应用在这个端口空着的时候会自己拉起一份。</p>
+
+      <h3>钥匙</h3>
+      <p>配对串里的钥匙只留在设备上。服务器保存密文，看不到笔记正文，也打不开库。</p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <a href="https://github.com/theosunny/memrelay">GitHub</a>
+    <a href="https://github.com/theosunny/memrelay/blob/main/docs/superpowers/specs/2026-10-22-twin-product-shell-design.md">设计说明</a>
+    <a href="https://github.com/theosunny/memrelay/blob/main/LICENSE">Apache-2.0</a>
+    <span class="quiet">官网占位 https://memrelay.zeabur.app</span>
+  </footer>
+  <script src="site.js"></script>
+</body>
+</html>
