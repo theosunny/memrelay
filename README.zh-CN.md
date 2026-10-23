@@ -2,10 +2,10 @@
 
 [![ci](https://github.com/theosunny/memrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/theosunny/memrelay/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-memrelay.zeabur.app-c4552a)](https://memrelay.zeabur.app)
+[![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-memrelay--web.preview.tencent--zeabur.cn-c4552a)](https://memrelay-web.preview.tencent-zeabur.cn)
 [English](README.md)
 
-> 官网 **CONFIGURE AFTER DEPLOY**。`https://memrelay.zeabur.app` 是占位域名，等 Zeabur 分配真实地址后再改。部署步骤：[packages/sync/ZEABUR.md](packages/sync/ZEABUR.md)。
+> 官网 [https://memrelay-web.preview.tencent-zeabur.cn](https://memrelay-web.preview.tencent-zeabur.cn)。同步 [https://memrelay-sync.preview.tencent-zeabur.cn](https://memrelay-sync.preview.tencent-zeabur.cn)。Zeabur 共享集群 2026-12-01 起暂停，2026-12-31 停止。部署说明：[packages/sync/ZEABUR.md](packages/sync/ZEABUR.md)。
 
 **让你所有的 AI 智能体共用一份记忆，并逐渐成为你的数字分身。**
 
@@ -114,7 +114,7 @@ uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages
 
 ## 下载
 
-官网：[https://memrelay.zeabur.app](https://memrelay.zeabur.app)（**CONFIGURE AFTER DEPLOY**）。
+官网：[https://memrelay-web.preview.tencent-zeabur.cn](https://memrelay-web.preview.tencent-zeabur.cn)。
 
 **macOS。** 官网上的按钮指向 [GitHub Releases 最新版](https://github.com/theosunny/memrelay/releases/latest)。还没有 `.dmg` 或 `.app.zip` 时，按钮写着「即将发布」。在 Mac 上进入 `packages/desktop`：
 
@@ -125,9 +125,9 @@ npm run tauri build
 
 未签名的 `忆桥分身.app` 在 `src-tauri/target/release/bundle/macos/`，`.dmg` 在 `src-tauri/target/release/bundle/dmg/`。第一次请右键打开。先安装上面的两个命令行程序，从访达打开才能找到它们。推送 `v*` tag 会跑 `.github/workflows/release-macos.yml`，把未签名安装包挂到 Release。不需要 Apple 证书。
 
-**手机。** 官网部署之后打开 `https://memrelay.zeabur.app/m/`，加到主屏幕。原生工程在 `packages/mobile`。
+**手机。** 打开 [https://memrelay-web.preview.tencent-zeabur.cn/m/](https://memrelay-web.preview.tencent-zeabur.cn/m/)，加到主屏幕。原生工程在 `packages/mobile`。
 
-**同步。** 桌面和手机的设置里都有「同步服务」。官方占位地址：`https://memrelay-sync.zeabur.app`（**CONFIGURE AFTER DEPLOY**）。留空则用 `http://127.0.0.1:8790`。改地址后，在电脑上重新生成配对码。钥匙只留在设备上，服务器只存密文。自建和 Zeabur 步骤见 [packages/sync/ZEABUR.md](packages/sync/ZEABUR.md)。
+**同步。** 桌面和手机的设置里都有「同步服务」。官方地址：`https://memrelay-sync.preview.tencent-zeabur.cn`。留空则用 `http://127.0.0.1:8790`。改地址后，在电脑上重新生成配对码。钥匙只留在设备上，服务器只存密文。自建和 Zeabur 步骤见 [packages/sync/ZEABUR.md](packages/sync/ZEABUR.md)。
 
 **中国大陆用户**：Basic Memory 首次使用时要从 Hugging Face 下载一个小的嵌入模型。MemRelay 会先检测 `huggingface.co` 是否可达，不可达时自动把 `HF_ENDPOINT` 设为 `https://hf-mirror.com`。你自己设置过 `HF_ENDPOINT` 时以你的为准；在 `config.toml` 里写 `hf_endpoint = "off"` 可关闭这项检测。想让 `uv` 安装更快，也可以把 `UV_INDEX_URL` 设成你信任的 PyPI 镜像。
 
