@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -22,8 +23,13 @@ describe("App", () => {
   });
 
   it("keeps settings closed when the shell is down", async () => {
+    const user = userEvent.setup();
     render(<App />);
     expect(await screen.findByRole("navigation", { name: "主导航" })).toBeTruthy();
+    expect((await screen.findByRole("status")).textContent).toBe("分身暂时没连上");
     expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("高级")).toBeNull();
   });
 });

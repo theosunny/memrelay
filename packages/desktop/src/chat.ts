@@ -34,11 +34,11 @@ export function finishTwin(messages: ChatMessage[], answer: Answer): ChatMessage
   return next;
 }
 
-export function failTwin(messages: ChatMessage[]): ChatMessage[] {
+export function failTwin(messages: ChatMessage[], text?: string): ChatMessage[] {
   const next = messages.slice();
   const last = next[next.length - 1];
   if (!last || last.role !== "twin" || !last.pending) return messages;
-  next[next.length - 1] = { ...last, pending: false, error: "model" };
+  next[next.length - 1] = { ...last, pending: false, error: "model", text: text ?? last.text };
   return next;
 }
 

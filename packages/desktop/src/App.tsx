@@ -6,6 +6,7 @@ import { ModelGate, type ModelSave } from "./ModelGate";
 import { ChatThread } from "./ChatThread";
 import { SettingsDialog } from "./SettingsDialog";
 import { failTwin, finishTwin, markPending, parseTranscript, pushUser, serializeTranscript, type ChatMessage } from "./chat";
+import { COPY } from "./errors";
 import {
   askTwin,
   getActivity,
@@ -59,6 +60,7 @@ export default function App() {
   const [syncMsg, setSyncMsg] = useState("");
   const [gate, setGate] = useState<Gate>("loading");
   const [gateError, setGateError] = useState("");
+  const [shellReady, setShellReady] = useState(true);
 
   useEffect(() => {
     if (!pairing) { setQr(""); return; }
@@ -84,8 +86,32 @@ export default function App() {
       }
       setStatus("");
     } catch {
-      setError("暂时连不上。请检查设置里的地址和令牌。");
+      setError(COPY.sidecarDown);
     }
+  }
+
+  async function absorbShell(cfg: { ready: boolean; detail: string }) {
+    setBase(localStorage.getItem("shellBase") || base);
+    setToken(localStorage.getItem("shellToken") || "");
+    setShellReady(cfg.ready);
+    if (!cfg.ready) {
+      setError("");
+      setStatus("");
+      return;
+    }
+    setStatus(cfg.detail);
+    try {
+      const raw = await invoke<string>("read_transcript");
+      setMessages(parseTranscript(raw));
+    } catch {
+      setMessages([]);
+    }
+    if (localStorage.getItem("shellToken")) await refresh("twin");
+    else setStatus(cfg.detail || "需要填写令牌");
+  }
+
+  function retryShell() {
+    void loadShellConfig().then((cfg) => absorbShell(cfg));
   }
 
   useEffect(() => {
@@ -123,21 +149,9 @@ export default function App() {
   useEffect(() => {
     if (gate !== "ready") return;
     let gone = false;
-    (async () => {
-      const cfg = await loadShellConfig();
-      if (gone) return;
-      setBase(localStorage.getItem("shellBase") || base);
-      setToken(localStorage.getItem("shellToken") || "");
-      setStatus(cfg.detail);
-      try {
-        const raw = await invoke<string>("read_transcript");
-        if (!gone) setMessages(parseTranscript(raw));
-      } catch {
-        if (!gone) setMessages([]);
-      }
-      if (localStorage.getItem("shellToken")) await refresh("twin");
-      else setStatus(cfg.detail || "需要填写令牌");
-    })();
+    void loadShellConfig().then((cfg) => {
+      if (!gone) return absorbShell(cfg);
+    });
     return () => {
       gone = true;
     };
@@ -162,11 +176,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (gate !== "ready") return;
+    if (gate !== "ready" || !shellReady) return;
     if (localStorage.getItem("shellToken")) void refresh(tab);
     // query is submitted explicitly so typing does not refetch every keystroke
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, gate]);
+  }, [tab, gate, shellReady]);
 
   async function persist(next: ChatMessage[]) {
     try {
@@ -189,7 +203,7 @@ export default function App() {
       setMessages(done);
       await persist(done);
     } catch {
-      const failed = failTwin(pending);
+      const failed = failTwin(pending, COPY.modelRejected);
       setMessages(failed);
       await persist(failed);
     } finally {
@@ -204,7 +218,7 @@ export default function App() {
     setSyncServer(chosen);
     localStorage.setItem("syncServer", chosen);
     setSettings(false);
-    void refresh(tab);
+    if (shellReady) void refresh(tab);
   }
 
   async function onSaveModel(input: { provider: string; apiKey: string; model: string }) {
@@ -230,13 +244,13 @@ export default function App() {
       setPairing(paired.pairing);
       setSyncMsg("");
     } catch {
-      setSyncMsg("同步没有完成");
+      setSyncMsg(COPY.syncFailed);
       return;
     }
     try {
       await runSync();
     } catch {
-      setSyncMsg("同步没有完成");
+      setSyncMsg(COPY.syncFailed);
     }
   }
 
@@ -249,7 +263,7 @@ export default function App() {
       localStorage.setItem("syncServer", chosen);
       setSyncMsg("");
     } catch {
-      setSyncMsg("分身暂时没连上");
+      setSyncMsg(COPY.sidecarDown);
     }
   }
 
@@ -258,7 +272,7 @@ export default function App() {
       await runSync();
       setSyncMsg("");
     } catch {
-      setSyncMsg("同步没有完成");
+      setSyncMsg(COPY.syncFailed);
     }
   }
 
@@ -303,7 +317,9 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {status && !error ? <p className="meta">{status}</p> : null}
+      {!shellReady ? <p role="status">{COPY.sidecarDown}</p> : null}
+      {!shellReady ? <button type="button" onClick={retryShell}>{COPY.retry}</button> : null}
+      {shellReady && status && !error ? <p className="meta">{status}</p> : null}
       {error ? <p className="error" role="alert">{error}</p> : null}
 
       {tab === "twin" && (
@@ -315,7 +331,14 @@ export default function App() {
               <option key={f.id} value={f.id}>{f.name}</option>
             ))}
           </select>
-          <ChatThread messages={messages} draft={draft} onDraft={setDraft} onSend={(text) => { void send(text); }} disabled={asking} />
+          <ChatThread
+            messages={messages}
+            draft={draft}
+            onDraft={setDraft}
+            onSend={(text) => { void send(text); }}
+            disabled={asking}
+            onOpenModel={() => setSettings(true)}
+          />
         </section>
       )}
 
@@ -330,11 +353,11 @@ export default function App() {
             </div>
           </form>
           {/* shortcut: no timeline or type filter yet, add them when a long vault is hard to scan */}
-          {memories.length === 0 ? <p className="meta">没有找到记忆。</p> : (
+          {memories.length === 0 ? <p className="meta">{query.trim() ? "没有找到记忆。" : COPY.memoryEmpty}</p> : (
             <ul className="list">
               {memories.map((m) => (
                 <li key={m.id}>
-                  <button type="button" onClick={() => void getMemory(m.id).then(setDetail).catch(() => setError("暂时连不上。请检查设置里的地址和令牌。"))}>
+                  <button type="button" onClick={() => void getMemory(m.id).then(setDetail).catch(() => setError(COPY.sidecarDown))}>
                     <strong>{m.title}</strong> <span className="meta">{m.type}</span>
                     <div className="meta">{m.snippet}</div>
                   </button>
@@ -355,7 +378,7 @@ export default function App() {
       {tab === "activity" && (
         <section aria-labelledby="activity-title">
           <h2 id="activity-title" className="meta">动态</h2>
-          <article className="card"><pre>{activity?.digest || "过去几天没有自动写入的记忆。"}</pre></article>
+          <article className="card"><pre>{activity?.digest || COPY.activityEmpty}</pre></article>
           {activity?.conflicts?.length ? (
             <article className="card">
               <h3>需要你看一眼</h3>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { SAMPLE_ASK, type ChatMessage } from "./chat";
+import { COPY } from "./errors";
 
 export function ChatThread({
   messages,
@@ -7,12 +8,14 @@ export function ChatThread({
   onDraft,
   onSend,
   disabled,
+  onOpenModel,
 }: {
   messages: ChatMessage[];
   draft: string;
   onDraft: (value: string) => void;
   onSend: (text: string) => void;
   disabled: boolean;
+  onOpenModel?: () => void;
 }) {
   const last = useRef<HTMLElement | null>(null);
 
@@ -41,6 +44,9 @@ export function ChatThread({
             className={message.role === "user" ? "bubble user" : "bubble twin"}
           >
             <p>{message.pending ? "正在回答…" : message.text}</p>
+            {!message.pending && message.error === "model" ? (
+              <button type="button" onClick={() => onOpenModel?.()}>{COPY.openModel}</button>
+            ) : null}
             {!message.pending && message.citations?.length ? (
               <ol>
                 {message.citations.map((item) => (
