@@ -211,7 +211,7 @@
           <p>在 Mac 上进入 <code>packages/desktop</code>：</p>
           <pre><code>npm install
 npm run tauri build</code></pre>
-          <p>未签名的应用在 <code>src-tauri/target/release/bundle/macos/</code>，dmg 在 <code>src-tauri/target/release/bundle/dmg/</code>。第一次请右键打开。从访达启动前先安装：</p>
+          <p>上面的按钮下载的是已公证的磁盘映像。没有 Apple 凭证时，本地 <code>npm run tauri build</code> 只是开发者安装包，不是网站链接的那个文件。发布任务在凭证缺失时拒绝上传。本地产物在 <code>src-tauri/target/release/bundle/macos/</code> 和 <code>src-tauri/target/release/bundle/dmg/</code>。从源码启动前先安装：</p>
           <pre><code>uv tool install basic-memory
 uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
 uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/sync"

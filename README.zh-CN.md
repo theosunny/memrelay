@@ -103,7 +103,7 @@ memrelay connect --all
 
 重启各智能体，然后问其中一个：“你对我了解多少？”
 
-**macOS 桌面应用。** 在 `packages/desktop` 里执行 `npm install && npm run tauri build`。未签名的 `.app` 在 `src-tauri/target/release/bundle/macos/忆桥分身.app`，`.dmg` 在 `src-tauri/target/release/bundle/dmg/`。先安装命令行程序，从访达打开时才能找到它（不依赖终端 PATH）：
+**macOS 桌面应用。** 在 `packages/desktop` 里执行 `npm install && npm run tauri build`。没有 Apple 凭证时，这是开发者安装包，不是官网链接的磁盘映像。`.app` 在 `src-tauri/target/release/bundle/macos/忆桥分身.app`，`.dmg` 在 `src-tauri/target/release/bundle/dmg/`。先安装命令行程序，开发者从访达打开时才能找到它（不依赖终端 PATH）：
 
 ```bash
 uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
@@ -116,14 +116,12 @@ uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages
 
 官网：[https://memrelay-web.preview.tencent-zeabur.cn](https://memrelay-web.preview.tencent-zeabur.cn)。
 
-**macOS。** 官网上的按钮指向 [GitHub Releases 最新版](https://github.com/theosunny/memrelay/releases/latest)。还没有 `.dmg` 或 `MemRelay-*-macos.zip` 时，按钮写着「即将发布」。在 Mac 上进入 `packages/desktop`：
+**macOS。** 官网上的按钮指向 [GitHub Releases 最新版](https://github.com/theosunny/memrelay/releases/latest)，优先下载已公证的磁盘映像。没有 Apple 凭证时，本地 `npm run tauri build` 只是开发者安装包，不是官网链接的文件。`.github/workflows/release-macos.yml` 在这些凭证缺失时拒绝发布。
 
 ```bash
 npm install
 npm run tauri build
 ```
-
-未签名的 `忆桥分身.app` 在 `src-tauri/target/release/bundle/macos/`，`.dmg` 在 `src-tauri/target/release/bundle/dmg/`。第一次请右键打开。先安装上面的两个命令行程序，从访达打开才能找到它们。推送 `v*` tag 会跑 `.github/workflows/release-macos.yml`，把未签名安装包挂到 Release。不需要 Apple 证书。
 
 **手机。** 打开 [https://memrelay-web.preview.tencent-zeabur.cn/m/](https://memrelay-web.preview.tencent-zeabur.cn/m/)，加到主屏幕。原生工程在 `packages/mobile`。
 

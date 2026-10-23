@@ -110,7 +110,7 @@ memrelay connect --all
 
 Restart your agents, then ask one of them "what do you know about me?".
 
-**macOS desktop app.** From `packages/desktop`: `npm install && npm run tauri build`. The unsigned `.app` is `src-tauri/target/release/bundle/macos/忆桥分身.app` and the `.dmg` is under `src-tauri/target/release/bundle/dmg/`. Install the CLI first so Finder can launch it without your shell PATH:
+**macOS desktop app.** From `packages/desktop`: `npm install && npm run tauri build`. Without the Apple secrets that local bundle is a developer build, not the disk image the website links to. The `.app` is `src-tauri/target/release/bundle/macos/忆桥分身.app` and the `.dmg` is under `src-tauri/target/release/bundle/dmg/`. Install the CLI first so a developer launch from Finder can see it without your shell PATH:
 
 ```bash
 uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages/core"
@@ -123,14 +123,12 @@ Signing and the LAN sync warning: [packages/desktop/README.md](packages/desktop/
 
 官网: [https://memrelay-web.preview.tencent-zeabur.cn](https://memrelay-web.preview.tencent-zeabur.cn).
 
-**macOS.** The site's download button points at [GitHub Releases latest](https://github.com/theosunny/memrelay/releases/latest). Until a `.dmg` or `MemRelay-*-macos.zip` is attached, that button says 即将发布. Build on a Mac from `packages/desktop`:
+**macOS.** The site's download button points at [GitHub Releases latest](https://github.com/theosunny/memrelay/releases/latest) and prefers the notarized disk image. A local `npm run tauri build` without the Apple secrets is a developer bundle and is not the file the website links to. `.github/workflows/release-macos.yml` refuses to publish when those secrets are missing.
 
 ```bash
 npm install
 npm run tauri build
 ```
-
-Unsigned outputs: `src-tauri/target/release/bundle/macos/忆桥分身.app` and `src-tauri/target/release/bundle/dmg/`. Right-click the app the first time. Install the two CLIs above so Finder can find them. Pushing a `v*` tag runs `.github/workflows/release-macos.yml` and attaches the unsigned artifacts to the Release. No Apple certificate required.
 
 **Phone.** Open [https://memrelay-web.preview.tencent-zeabur.cn/m/](https://memrelay-web.preview.tencent-zeabur.cn/m/) and add it to the home screen. Native shells live in `packages/mobile`.
 

@@ -56,7 +56,7 @@ export APPLE_PROVIDER_SHORT_NAME="TEAMID"
 npm run tauri build
 ```
 
-Gatekeeper will warn on the unsigned app. Right-click the `.app` and choose Open the first time. Entitlements for a signed build are `src-tauri/Entitlements.plist` (network client only).
+A local `npm run tauri build` without the Apple secrets is a developer bundle and is not the file the website links to. The release workflow refuses to publish when those secrets are missing. Entitlements for a signed build are `src-tauri/Entitlements.plist` (network client and the Keychain access group, no app sandbox).
 
 Install the engines before opening the app from Finder:
 
@@ -71,7 +71,7 @@ uv tool install "git+https://github.com/theosunny/memrelay#subdirectory=packages
 
 1. 安装 Xcode 命令行工具、Rust、Node.js 20+。
 2. 在仓库根目录执行 `uv tool install`（见上面的英文安装命令），让 `memrelay` 出现在 `~/.local/bin`。从访达打开时不看终端的 PATH。
-3. 进入 `packages/desktop`，执行 `npm install`。开发用 `npm run tauri dev`。安装包用 `npm run tauri build`，未签名的 `.app` 和 `.dmg` 在 `src-tauri/target/release/bundle/`。
+3. 进入 `packages/desktop`，执行 `npm install`。开发用 `npm run tauri dev`。没有 Apple 凭证时，`npm run tauri build` 只是开发者安装包，不是官网链接的文件，产物在 `src-tauri/target/release/bundle/`。
 4. 第一次打开会启动本机服务。三个入口是 **分身**、**记忆**、**动态**。问「我偏好什么」时，回答带依据和分身说明。
 5. 关掉窗口只会藏到菜单栏。要退出，用托盘里的「退出」。
 
@@ -93,8 +93,8 @@ Open `http://127.0.0.1:1420`. The content security policy inside the tray app al
 
 ## Skipped
 
-- No Apple notarization in CI. The committed config signs nothing until `APPLE_SIGNING_IDENTITY` is set.
-- Python is not frozen into the `.app`. shortcut: a sidecar freeze is a new packaging pipeline, do that when `uv tool install` is not acceptable.
+- The macOS release workflow signs, notarizes, and staples, or it exits before `tauri build` when an Apple secret is missing. A local build without those secrets is a developer bundle.
+- The macOS release workflow freezes `memrelay` and `memrelay-sync` with PyInstaller before the bundle. A local `npm run tauri build` still needs those two binaries in `src-tauri/resources` or the consumer bundle step fails.
 - Memory browse has search and a single note, not a timeline or type filter.
 - JS client has no test runner yet.
 - 设置 shows a QR of the pairing string and the same text underneath. The string is the vault key.
